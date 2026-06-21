@@ -1,0 +1,22 @@
+{
+  "short_name": "Folia",
+  "name": "Folia — Crop Health Diagnostics",
+  "description": "Innovative, secure, and offline-first crop diagnostics and care system.",
+  "icons": [
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#090D16",
+  "background_color": "#090D16"
+}

@@ -1,0 +1,27 @@
+# Node / Vite
+node_modules/
+dist/
+.env
+.env.*
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.cache/
+.ipynb_checkpoints/
+
+# Logs
+*.log
+backend/backend.log
+frontend/frontend.log
+
+# Large model checkpoints (stored on HF Hub)
+backend/*.pth
+backend/*.safetensors
+checkpoint/
+checkpoints/
+
+# Secrets & Keys
+backend/firebase-key.json
+

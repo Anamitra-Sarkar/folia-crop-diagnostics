@@ -1,0 +1,16 @@
+/* Folia Root Scroll Normalizer */
+/* Prevents duplicate viewport scrollbars in React-Vite environments */
+html, body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}

@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Under this rule, a user can only read/write documents located inside their own uid collection path
+    // e.g. /users/UID_123/diagnostics/DOC_ABC
+    // Opening links on different devices or by different users will never leak data across users
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
