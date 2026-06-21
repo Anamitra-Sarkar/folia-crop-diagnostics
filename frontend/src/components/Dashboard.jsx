@@ -54,7 +54,7 @@ const MOCK_SAMPLES = [
   }
 ];
 
-const API_BASE_URL = "http://localhost:7860";
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:7860";
 
 // Client-side local diagnostic care guide fallback map (Javascript)
 function getLocalInterpretation(className) {
