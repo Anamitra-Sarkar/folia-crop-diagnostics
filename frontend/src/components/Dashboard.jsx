@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Leaf, Wifi, WifiOff, Battery, ShieldAlert, 
   UploadCloud, Play, FileText, CheckCircle2, 
-  Activity, Loader2, LogOut, RefreshCw, AlertCircle
+  Activity, Loader2, LogOut, RefreshCw, AlertCircle,
+  Download, Trash2, Server
 } from "lucide-react";
 
 // Mock leaf samples for sandbox testing (matching models.py classes)
@@ -182,7 +183,77 @@ export default function Dashboard() {
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
 
+  // PWA Local Model Caching states & helpers
+  const MODEL_URL = "https://huggingface.co/Arko007/adaptive-edge-plant-model/resolve/main/mobilenetv4_edge_best.safetensors";
+  const [modelCached, setModelCached] = useState(false);
+  const [downloadingModel, setDownloadingModel] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
   const fileInputRef = useRef(null);
+
+  const checkModelCache = async () => {
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open("folia-model-cache");
+        const matched = await cache.match(MODEL_URL);
+        setModelCached(!!matched);
+      } catch (err) {
+        console.log("Error checking cache:", err);
+      }
+    }
+  };
+
+  const downloadEdgeModel = async () => {
+    if (!('caches' in window)) {
+      alert("Browser caching not supported in this environment.");
+      return;
+    }
+    setDownloadingModel(true);
+    setDownloadProgress(0);
+    try {
+      const response = await fetch(MODEL_URL);
+      if (!response.ok) throw new Error("Hugging Face model download failed.");
+      
+      const reader = response.body.getReader();
+      const contentLength = +response.headers.get('Content-Length') || 46000000;
+      
+      let receivedLength = 0;
+      let chunks = [];
+      while(true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedLength += value.length;
+        setDownloadProgress(Math.min(99, Math.round((receivedLength / contentLength) * 100)));
+      }
+      
+      const blob = new Blob(chunks);
+      const mockResponse = new Response(blob, {
+        headers: { 'Content-Type': 'application/octet-stream' }
+      });
+      const cache = await caches.open("folia-model-cache");
+      await cache.put(MODEL_URL, mockResponse);
+      setModelCached(true);
+      setDownloadProgress(100);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download local model. Ensure your connection is active and try again.");
+    } finally {
+      setDownloadingModel(false);
+    }
+  };
+
+  const clearModelCache = async () => {
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open("folia-model-cache");
+        await cache.delete(MODEL_URL);
+        setModelCached(false);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
 
   // Authenticated headers helper
   const getAuthHeaders = async () => {
@@ -222,6 +293,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    checkModelCache();
     fetchTelemetry();
     const interval = setInterval(fetchTelemetry, 10000);
     return () => clearInterval(interval);
@@ -246,6 +318,10 @@ export default function Dashboard() {
   };
 
   const runDiagnostics = async () => {
+    if (!isOnline && !modelCached) {
+      alert("Offline Mode is active but the local edge model has not been downloaded/cached yet. Please connect online to download the local model first.");
+      return;
+    }
     setRunningInference(true);
     setDiagnosisResult(null);
 
@@ -568,6 +644,61 @@ export default function Dashboard() {
                 <div className="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 disabled:opacity-50"></div>
               </label>
             </div>
+          </div>
+
+          {/* Offline Model Cache Card */}
+          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Server className="w-4 h-4 text-emerald-400" />
+              Offline Model Cache
+            </h2>
+            <p className="text-xs text-slate-400">
+              Download and cache the 45MB Edge Diagnostic Model locally to perform crop diagnostics offline.
+            </p>
+
+            {modelCached ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Model is cached on this device</span>
+                </div>
+                <button
+                  onClick={clearModelCache}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-950/30 hover:bg-red-900/30 border border-red-800/40 text-red-400 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear Model Cache
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {downloadingModel ? (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-semibold text-slate-300">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                        Downloading...
+                      </span>
+                      <span>{downloadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 transition-all duration-150"
+                        style={{ width: `${downloadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={downloadEdgeModel}
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Edge Model
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Database Analytics Stats */}

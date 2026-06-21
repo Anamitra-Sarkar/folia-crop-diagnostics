@@ -25,3 +25,6 @@ checkpoints/
 # Secrets & Keys
 backend/firebase-key.json
 
+# Training scripts and reports
+training/
+
