@@ -16,13 +16,28 @@ from firebase_admin import credentials, auth
 
 # Initialize Firebase Admin SDK
 firebase_key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firebase-key.json")
+firebase_key_json = os.getenv("FIREBASE_KEY_JSON")
+
 if os.path.exists(firebase_key_path):
     try:
-        print(f"Initializing Firebase Admin with service account key: {firebase_key_path}")
+        print(f"Initializing Firebase Admin with service account key file: {firebase_key_path}")
         cred = credentials.Certificate(firebase_key_path)
         firebase_admin.initialize_app(cred)
     except Exception as e:
         print(f"Error initializing Firebase Admin with key file: {e}")
+        try:
+            firebase_admin.initialize_app()
+        except Exception:
+            pass
+elif firebase_key_json:
+    try:
+        print("Initializing Firebase Admin with service account key from environment variable...")
+        import json
+        key_data = json.loads(firebase_key_json)
+        cred = credentials.Certificate(key_data)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        print(f"Error initializing Firebase Admin with env key: {e}")
         try:
             firebase_admin.initialize_app()
         except Exception:
