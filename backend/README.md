@@ -11,7 +11,7 @@ license: apache-2.0
 
 # Folia Crop Diagnostics
 
-A production-ready, research-grade cooperative edge-cloud inference framework designed for reliable crop disease diagnostics in low-connectivity agricultural fields.
+A production-ready, research-grade cooperative edge-cloud inference framework designed for reliable crop disease diagnostics in low-connectivity agricultural fields. 
 
 ---
 
