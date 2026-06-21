@@ -254,4 +254,4 @@ def get_stats(user: dict = Depends(verify_firebase_token)):
     return get_statistics(uid)
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=False)
