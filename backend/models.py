@@ -116,6 +116,11 @@ class CloudClassifier:
     def load_model(self):
         """Loads the production ConvNeXt-Large classifier.
         Attempts safetensors first, then fallback .pth checkpoint. Falls back to simulator if unavailable."""
+        if os.getenv("DEV_MODE", "false").lower() == "true":
+            print("DEV_MODE=true: Skipping local cloud-model weights load to preserve RAM/disk resources on local machine.")
+            self.model = None
+            return
+            
         print("Loading cloud ConvNeXt-Large production classifier...")
         REPO_ID = "Arko007/adaptive-cloud-plant-model"
         HF_TOKEN = os.getenv("HF_TOKEN", "")
