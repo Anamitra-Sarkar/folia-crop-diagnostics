@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Cpu, ShieldCheck, ArrowRight, Activity, 
@@ -71,12 +71,12 @@ export default function LandingPage() {
             {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
           
-          <button
-            onClick={() => navigate("/login")}
+          <Link
+            to="/login"
             className="text-sm font-semibold text-text hover:text-primary transition-colors cursor-pointer"
           >
             Sign In
-          </button>
+          </Link>
         </div>
       </nav>
 
@@ -104,13 +104,13 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-row items-center gap-6 pt-2">
-            <button
-              onClick={() => navigate("/login")}
+            <Link
+              to="/login"
               className="flex items-center justify-center gap-2 px-5 py-2.5 rounded bg-primary hover:bg-primary-hover text-white font-semibold text-[14px] h-[44px] cursor-pointer transition-colors duration-150"
             >
               Get started
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
             <button
               onClick={() => {
                 const howItWorksSec = document.getElementById("how-it-works");
