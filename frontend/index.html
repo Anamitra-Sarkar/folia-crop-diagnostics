@@ -5,12 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Research-grade Adaptive Edge-Cloud Plant Disease Diagnosis and Telemetry dashboard." />
     <title>Folia — Crop Health Diagnostics</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
     <!-- PWA Configurations -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/logo192.png" />
-    <meta name="theme-color" content="#090D16" />
+    <meta name="theme-color" content="#f5f3ef" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    
+    <script>
+      (function() {
+        const theme = localStorage.getItem('folia-theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     
     <script>
       if ('serviceWorker' in navigator) {
@@ -22,17 +34,29 @@
       }
     </script>
     
-    <!-- Tailwind CSS for modern glassmorphic landing and auth pages -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: ['selector', '[data-theme="dark"]'],
         theme: {
           extend: {
             colors: {
-              brandGreen: '#10B981',
-              brandBlue: '#3B82F6',
-              brandYellow: '#F59E0B',
-              brandRed: '#EF4444',
+              bg: 'var(--color-bg)',
+              surface: 'var(--color-surface)',
+              'surface-2': 'var(--color-surface-2)',
+              border: 'var(--color-border)',
+              text: 'var(--color-text)',
+              'text-muted': 'var(--color-text-muted)',
+              'text-faint': 'var(--color-text-faint)',
+              primary: 'var(--color-primary)',
+              'primary-hover': 'var(--color-primary-hover)',
+              accent: 'var(--color-accent)',
+              danger: 'var(--color-danger)',
+              cloud: 'var(--color-cloud)',
+            },
+            fontFamily: {
+              display: ['Fraunces', 'Georgia', 'serif'],
+              sans: ['DM Sans', 'system-ui', 'sans-serif'],
             }
           }
         }

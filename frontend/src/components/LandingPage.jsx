@@ -1,15 +1,29 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Leaf, Cpu, ShieldCheck, ArrowRight, Activity, CloudLightning } from "lucide-react";
+import { 
+  Cpu, ShieldCheck, ArrowRight, Activity, 
+  CloudLightning, Sun, Moon 
+} from "lucide-react";
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("folia-theme") || "light";
+  });
 
-  // Animation configurations
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("folia-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
+
   const fadeInUp = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
+    hidden: { opacity: 0, y: 25 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
   };
 
   const staggerContainer = {
@@ -17,199 +31,297 @@ export default function LandingPage() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2
+        staggerChildren: 0.12
       }
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#090D16] text-[#F8FAFC] overflow-x-hidden font-sans relative">
-      {/* Background radial glow */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px] pointer-events-none" />
+  // Custom 3-stroke Leaf SVG
+  const LeafIcon = () => (
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary transition-colors">
+      <path d="M14 2C14 2 21 8 21 15C21 18.866 17.866 22 14 22C10.134 22 7 18.866 7 15C7 8 14 2 14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14 2V22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M14 9C15.5 10.5 18 11 18 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M14 14C12.5 15.5 10 16 10 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
 
+  return (
+    <div className="min-h-screen bg-bg text-text overflow-x-hidden font-sans transition-colors duration-200">
       {/* Navigation Header */}
-      <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center relative z-10">
-        <div className="flex items-center gap-2">
-          <Leaf className="w-8 h-8 text-emerald-400 animate-pulse" />
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+      <nav className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <LeafIcon />
+          <span className="font-display font-semibold text-xl tracking-tight text-text">
             Folia
           </span>
         </div>
-        <button
-          onClick={() => navigate("/login")}
-          className="px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 font-medium text-sm transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.05)] cursor-pointer"
-        >
-          Sign In
-        </button>
+        
+        <div className="flex items-center gap-6">
+          <div className="hidden md:flex gap-6 text-sm font-medium">
+            <a href="#how-it-works" className="text-text-muted hover:text-text transition-colors">How it Works</a>
+            <a href="#science" className="text-text-muted hover:text-text transition-colors">Science</a>
+          </div>
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border text-text-muted hover:text-text cursor-pointer transition-all"
+            aria-label="Toggle Theme"
+          >
+            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+          
+          <button
+            onClick={() => navigate("/login")}
+            className="text-sm font-semibold text-text hover:text-primary transition-colors cursor-pointer"
+          >
+            Sign In
+          </button>
+        </div>
       </nav>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-6 pt-16 pb-24 relative z-10 grid lg:grid-cols-12 gap-12 items-center">
+      <main className="max-w-7xl mx-auto px-6 pt-16 pb-24 grid lg:grid-cols-12 gap-12 items-center">
         {/* Left Column: Headline & Action */}
         <motion.div 
-          className="lg:col-span-7 space-y-8"
+          className="lg:col-span-7 space-y-6"
           initial="hidden"
           animate="visible"
           variants={fadeInUp}
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-            <Activity className="w-4 h-4 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-surface border border-border text-primary text-xs font-semibold">
+            <Activity className="w-3.5 h-3.5" />
             Adaptive Edge-Cloud Agriculture
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.1] text-white">
-            Smart Crop Diagnostics <br />
-            <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">
-              Anytime, Anywhere.
-            </span>
+          <h1 className="font-display text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] text-text max-w-2xl">
+            Precision crop diagnosis. <br />
+            Anywhere on the field.
           </h1>
           
-          <p className="text-lg text-slate-400 leading-relaxed max-w-xl">
-            Protect your crop yields with edge-computing plant pathology. Folia dynamically uses local mobile AI filtering when offline and offloads complex cases to cloud servers when online—ensuring 96.4% medical-grade diagnosis.
+          <p className="text-[15px] md:text-[16px] text-text-muted leading-[1.65] max-w-[480px]">
+            Folia runs advanced plant pathology locally on your device — and automatically calls in cloud AI only when it needs extra classification confidence.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+          <div className="flex flex-row items-center gap-6 pt-2">
             <button
               onClick={() => navigate("/login")}
-              className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:opacity-95 text-slate-950 font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-300 group cursor-pointer"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded bg-primary hover:bg-primary-hover text-white font-semibold text-[14px] h-[44px] cursor-pointer transition-colors duration-150"
             >
-              Join Now
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              Get started
+              <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => {
-                const featuresSec = document.getElementById("features");
-                featuresSec?.scrollIntoView({ behavior: "smooth" });
+                const howItWorksSec = document.getElementById("how-it-works");
+                howItWorksSec?.scrollIntoView({ behavior: "smooth" });
               }}
-              className="px-8 py-4 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/50 text-slate-300 font-medium transition-all duration-300 cursor-pointer"
+              className="text-[14px] font-semibold text-text-muted hover:text-text hover:underline cursor-pointer transition-all"
             >
-              Explore Features
+              See how it works
             </button>
           </div>
         </motion.div>
 
-        {/* Right Column: Dynamic Telemetry UI Graphic */}
+        {/* Right Column: Split Composition Photograph Layout */}
         <motion.div 
-          className="lg:col-span-5 relative"
-          initial={{ opacity: 0, scale: 0.95 }}
+          className="lg:col-span-5 flex justify-center"
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
         >
-          {/* Decorative glows */}
-          <div className="absolute top-[20%] right-[-10%] w-[150px] h-[150px] rounded-full bg-emerald-500/20 blur-[50px] animate-pulse" />
-          
-          {/* Glassmorphic Mockup Frame */}
-          <div className="w-full rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-md p-6 shadow-2xl space-y-6 relative overflow-hidden">
-            {/* Header info bar */}
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#EF4444]" />
-                <span className="w-3 h-3 rounded-full bg-[#F59E0B]" />
-                <span className="w-3 h-3 rounded-full bg-[#10B981]" />
-              </div>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Live Diagnostics Telemetry</span>
-            </div>
-
-            {/* Simulated Scanning Graphic */}
-            <div className="h-44 rounded-xl bg-slate-950/60 border border-slate-800/60 relative overflow-hidden flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent animate-pulse" />
-              <Leaf className="w-20 h-20 text-emerald-500/30" />
-              {/* Laser scanning line */}
-              <div className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent top-0 animate-[scan_3s_infinite_linear]" />
-            </div>
-
-            {/* Health status block */}
-            <div className="space-y-3">
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>Diagnostic Status:</span>
-                <span className="text-emerald-400 font-bold uppercase tracking-wider animate-pulse">Scanning Complete</span>
-              </div>
-              <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 w-[96.4%] rounded-full" />
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Classification Certainty:</span>
-                <span className="text-white font-bold">96.42%</span>
+          <div className="relative w-full max-w-[480px]">
+            {/* Real photograph leaf representation */}
+            <div className="rounded border border-border bg-surface p-2 shadow-[0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
+              <img 
+                src="https://picsum.photos/seed/leaf-scan/560/420" 
+                alt="Foliar diagnostic leaf scan sample" 
+                className="w-full h-72 object-cover rounded-sm filter saturate-[0.85] contrast-[1.02]"
+              />
+              {/* Minimal data badge overlay */}
+              <div className="absolute bottom-6 left-6 rounded border border-border bg-surface px-3 py-1.5 shadow-sm text-xs font-semibold text-text flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary" />
+                <span>Tomato Leaf (Early Blight)</span>
+                <span className="text-text-muted">|</span>
+                <span className="text-primary font-bold">96.42% Conf</span>
               </div>
             </div>
           </div>
         </motion.div>
       </main>
 
-      {/* Features Grid */}
-      <section id="features" className="max-w-7xl mx-auto px-6 py-24 relative z-10 border-t border-slate-900">
+      {/* Science Section: Asymmetric Features Grid */}
+      <section id="science" className="max-w-7xl mx-auto px-6 py-20 border-t border-border">
         <motion.div 
-          className="text-center max-w-2xl mx-auto space-y-4 mb-16"
+          className="max-w-2xl space-y-3 mb-12"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
           variants={fadeInUp}
         >
-          <h2 className="text-3xl font-black text-white">How Folia Protects Your Crops</h2>
-          <p className="text-slate-400 leading-relaxed">
-            A state-of-the-art diagnostic system designed for high-stakes, real-world deployment in deep agricultural fields.
+          <h2 className="font-display text-3xl font-bold tracking-tight text-text">
+            Designed for Field Resiliency
+          </h2>
+          <p className="text-[15px] text-text-muted max-w-xl">
+            A state-of-the-art diagnostic system combining evidential deep learning and conformal inference calibration to secure crop yield.
           </p>
         </motion.div>
 
         <motion.div 
-          className="grid md:grid-cols-3 gap-8"
+          className="grid lg:grid-cols-10 gap-8"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
           variants={staggerContainer}
         >
-          {/* Card 1 */}
+          {/* Asymmetric Left Large Card (60%) */}
           <motion.div 
-            className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/80 backdrop-blur-sm space-y-4 hover:border-emerald-500/30 transition-all duration-300"
+            className="lg:col-span-6 p-8 rounded border border-border bg-surface space-y-6 flex flex-col justify-between shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
             variants={fadeInUp}
           >
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Cpu className="w-6 h-6" />
+            <div className="space-y-4">
+              <Cpu className="w-5 h-5 text-primary" />
+              <h3 className="font-display text-xl font-semibold text-text">Cooperative Gating Logic</h3>
+              <p className="text-[14px] text-text-muted leading-relaxed">
+                By analytically evaluating epistemic vacuity on device, Folia prevents false positives. Standard cases resolve instantly at the edge. High-uncertainty pathogenetic visual details offload dynamically to our deep cloud ConvNeXt models.
+              </p>
             </div>
-            <h3 className="text-lg font-bold text-white">Adaptive Edge Routing</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Runs lightweight diagnosis locally on your phone. Highly uncertain images are automatically offloaded to cloud servers to guarantee diagnostic accuracy.
-            </p>
+            
+            <div className="pt-6 border-t border-border/60 flex items-baseline gap-2">
+              <span className="font-display text-4xl font-bold text-primary">96.4%</span>
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Validated Field Accuracy</span>
+            </div>
           </motion.div>
 
-          {/* Card 2 */}
-          <motion.div 
-            className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/80 backdrop-blur-sm space-y-4 hover:border-teal-500/30 transition-all duration-300"
-            variants={fadeInUp}
-          >
-            <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
-              <CloudLightning className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Groq AI Interpretation</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Decodes technical diagnostic outputs into simple, human-readable treatment steps, explaining exactly what is wrong and how to fix it immediately.
-            </p>
-          </motion.div>
+          {/* Asymmetric Right Stacked Cards (40%) */}
+          <div className="lg:col-span-4 flex flex-col gap-8">
+            {/* Top small card */}
+            <motion.div 
+              className="p-6 rounded border border-border bg-surface space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+              variants={fadeInUp}
+            >
+              <CloudLightning className="w-5 h-5 text-primary" />
+              <h3 className="font-display text-[18px] font-semibold text-text">Language Interpretation</h3>
+              <p className="text-[13px] text-text-muted leading-relaxed">
+                Integrated Groq API routes diagnoses to advanced models that explain pathogenic conditions and list care guide points in clear, plain language.
+              </p>
+            </motion.div>
 
-          {/* Card 3 */}
-          <motion.div 
-            className="p-6 rounded-2xl bg-slate-900/30 border border-slate-800/80 backdrop-blur-sm space-y-4 hover:border-violet-500/30 transition-all duration-300"
-            variants={fadeInUp}
-          >
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Rigorous Privacy Rules</h3>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Built on secure Firebase architecture. Firestore constraints isolate logs strictly per user, making sure other users can never view or intercept your logs.
-            </p>
-          </motion.div>
+            {/* Bottom small card */}
+            <motion.div 
+              className="p-6 rounded border border-border bg-surface space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+              variants={fadeInUp}
+            >
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <h3 className="font-display text-[18px] font-semibold text-text">Isolated Firestore Sync</h3>
+              <p className="text-[13px] text-text-muted leading-relaxed">
+                User accounts are isolated. Firebase Rules prevent any diagnostic, geographical, or telemetry log interception across accounts.
+              </p>
+            </motion.div>
+          </div>
         </motion.div>
       </section>
 
+      {/* How It Works Section: Pipeline Flow */}
+      <section id="how-it-works" className="max-w-7xl mx-auto px-6 py-20 border-t border-border">
+        <motion.div 
+          className="max-w-2xl space-y-3 mb-16"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeInUp}
+        >
+          <h2 className="font-display text-3xl font-bold tracking-tight text-text">
+            The Diagnostic Pipeline
+          </h2>
+          <p className="text-[15px] text-text-muted">
+            The five stages of conformal, latency-aware crop analysis.
+          </p>
+        </motion.div>
+
+        {/* Horizontal Flow Timeline */}
+        <div className="grid md:grid-cols-5 gap-8 relative">
+          
+          {/* Step 1 */}
+          <div className="space-y-4 relative z-10">
+            <div className="relative h-16 flex items-end">
+              <span className="font-display text-5xl font-bold text-primary/15 absolute top-0 left-0 pointer-events-none select-none">01</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Stage 1</span>
+            </div>
+            <h4 className="font-display font-semibold text-[15px] text-text">Binary Filter</h4>
+            <p className="text-[13px] text-text-muted leading-[1.65]">
+              Local HOG + Logistic Regression pre-filter terminates early if the leaf is healthy.
+            </p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="space-y-4 relative z-10">
+            <div className="relative h-16 flex items-end">
+              <span className="font-display text-5xl font-bold text-primary/15 absolute top-0 left-0 pointer-events-none select-none">02</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Stage 2</span>
+            </div>
+            <h4 className="font-display font-semibold text-[15px] text-text">MobileNetV4 EDL</h4>
+            <p className="text-[13px] text-text-muted leading-[1.65]">
+              Extracts features locally using Evidential Deep Learning (Dirichlet categorization).
+            </p>
+          </div>
+
+          {/* Step 3 */}
+          <div className="space-y-4 relative z-10">
+            <div className="relative h-16 flex items-end">
+              <span className="font-display text-5xl font-bold text-primary/15 absolute top-0 left-0 pointer-events-none select-none">03</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Stage 3</span>
+            </div>
+            <h4 className="font-display font-semibold text-[15px] text-text">Uncertainty Calc</h4>
+            <p className="text-[13px] text-text-muted leading-[1.65]">
+              Quantifies model ignorance (epistemic vacuity) analytically on the device.
+            </p>
+          </div>
+
+          {/* Step 4 */}
+          <div className="space-y-4 relative z-10">
+            <div className="relative h-16 flex items-end">
+              <span className="font-display text-5xl font-bold text-primary/15 absolute top-0 left-0 pointer-events-none select-none">04</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Stage 4</span>
+            </div>
+            <h4 className="font-display font-semibold text-[15px] text-text">Adaptive Gating</h4>
+            <p className="text-[13px] text-text-muted leading-[1.65]">
+              Adjusts confidence thresholds dynamically based on measured network latency.
+            </p>
+          </div>
+
+          {/* Step 5 */}
+          <div className="space-y-4 relative z-10">
+            <div className="relative h-16 flex items-end">
+              <span className="font-display text-5xl font-bold text-primary/15 absolute top-0 left-0 pointer-events-none select-none">05</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Stage 5</span>
+            </div>
+            <h4 className="font-display font-semibold text-[15px] text-text">Cloud Offloading</h4>
+            <p className="text-[13px] text-text-muted leading-[1.65]">
+              Routes uncertain targets to high-capacity cloud ConvNeXt models.
+            </p>
+          </div>
+
+          {/* Connected horizontal line (desktop only) */}
+          <div className="hidden md:block absolute top-12 left-0 right-0 h-[1px] bg-border z-0" />
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-6 border-t border-slate-900 relative z-10 text-slate-500 text-xs">
-        <div>&copy; 2026 Folia. All rights reserved.</div>
-        <div className="flex gap-6">
-          <a href="#" className="hover:text-slate-300 transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-slate-300 transition-colors">Terms of Service</a>
-          <a href="#" className="hover:text-slate-300 transition-colors">Documentation</a>
+      <footer className="bg-surface border-t border-border mt-16">
+        <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <div className="flex items-center gap-2">
+              <LeafIcon />
+              <span className="font-display font-semibold text-lg text-text">Folia</span>
+            </div>
+            <p className="text-[13px] text-text-muted">Precision agricultural diagnostics, secure and offline-first.</p>
+          </div>
+          
+          <div className="flex gap-6 text-[13px] text-text-muted">
+            <a href="https://github.com/Anamitra-Sarkar/folia-crop-diagnostics" target="_blank" rel="noopener noreferrer" className="hover:text-text transition-colors">GitHub Repository</a>
+            <a href="#" className="hover:text-text transition-colors">Privacy Policy</a>
+          </div>
         </div>
       </footer>
     </div>

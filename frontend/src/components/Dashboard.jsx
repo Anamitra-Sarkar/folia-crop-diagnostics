@@ -7,7 +7,7 @@ import {
   Leaf, Wifi, WifiOff, Battery, ShieldAlert, 
   UploadCloud, Play, FileText, CheckCircle2, 
   Activity, Loader2, LogOut, RefreshCw, AlertCircle,
-  Download, Trash2, Server
+  Download, Trash2, Server, Sun, Moon
 } from "lucide-react";
 
 // Mock leaf samples for sandbox testing (matching models.py classes)
@@ -16,7 +16,7 @@ const MOCK_SAMPLES = [
     id: "tomato_healthy",
     name: "Tomato (Healthy)",
     crop: "Tomato",
-    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231B4D3E'/><circle cx='50' cy='50' r='30' fill='%2310B981'/><path d='M50 10 C60 30, 40 40, 50 90' stroke='%23065F46' stroke-width='3' fill='none'/></svg>",
+    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23f5f3ef'/><path d='M50 10 C70 30, 30 50, 50 90 C30 50, 70 30, 50 10' fill='%232d7a4f'/></svg>",
     isHealthy: true,
     localPred: "Tomato__healthy",
     localConf: 0.98,
@@ -26,7 +26,7 @@ const MOCK_SAMPLES = [
     id: "tomato_early_blight",
     name: "Tomato (Early Blight)",
     crop: "Tomato",
-    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%233E2B1B'/><circle cx='50' cy='50' r='30' fill='%23F59E0B'/><circle cx='40' cy='40' r='5' fill='%2378350F'/><circle cx='60' cy='55' r='7' fill='%2378350F'/></svg>",
+    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23f5f3ef'/><path d='M50 10 C70 30, 30 50, 50 90 C30 50, 70 30, 50 10' fill='%238b6914'/><circle cx='45' cy='35' r='5' fill='%23b03030'/><circle cx='55' cy='55' r='7' fill='%23b03030'/></svg>",
     isHealthy: false,
     localPred: "Tomato__early_blight",
     localConf: 0.88,
@@ -36,7 +36,7 @@ const MOCK_SAMPLES = [
     id: "potato_late_blight",
     name: "Potato (Late Blight)",
     crop: "Potato",
-    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%233B2B1B'/><ellipse cx='50' cy='50' rx='30' ry='20' fill='%23B45309'/><circle cx='45' cy='48' r='4' fill='%23451A03'/><circle cx='58' cy='52' r='6' fill='%23451A03'/></svg>",
+    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23f5f3ef'/><path d='M50 15 C80 35, 20 65, 50 85 C20 65, 80 35, 50 15' fill='%238b6914'/><circle cx='40' cy='45' r='8' fill='%231f1c17'/></svg>",
     isHealthy: false,
     localPred: "Potato__late_blight",
     localConf: 0.74,
@@ -46,7 +46,7 @@ const MOCK_SAMPLES = [
     id: "apple_black_rot",
     name: "Apple (Black Rot)",
     crop: "Apple",
-    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231E1E1E'/><circle cx='50' cy='50' r='28' fill='%23991B1B'/><circle cx='42' cy='45' r='6' fill='%23111827'/><circle cx='54' cy='56' r='8' fill='%23111827'/></svg>",
+    image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23f5f3ef'/><path d='M50 10 C80 20, 80 80, 50 90 C20 80, 20 20, 50 10' fill='%23b03030'/><circle cx='50' cy='50' r='12' fill='%231f1c17'/></svg>",
     isHealthy: false,
     localPred: "Apple__black_rot",
     localConf: 0.65,
@@ -182,6 +182,9 @@ export default function Dashboard() {
   });
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("folia-theme") || "light";
+  });
 
   // PWA Local Model Caching states & helpers
   const MODEL_URL = "https://huggingface.co/Arko007/adaptive-edge-plant-model/resolve/main/mobilenetv4_edge_best.safetensors";
@@ -190,6 +193,32 @@ export default function Dashboard() {
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   const fileInputRef = useRef(null);
+
+  // Finite State Machine dynamic mapping
+  let fsmState = "S1";
+  let fsmDesc = "Low latency. Decides locally.";
+  if (!isOnline) {
+    fsmState = "S4";
+    fsmDesc = "Offline blackout. Full local offline fallback.";
+  } else if (forceCloud) {
+    fsmState = "S3";
+    fsmDesc = "Forced cloud routing active.";
+  } else if (latency > 150) {
+    fsmState = "S2";
+    fsmDesc = "Normal state. Offloads uncertain cases dynamically.";
+  } else {
+    fsmState = "S1";
+    fsmDesc = "Low latency. Decides locally.";
+  }
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("folia-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
 
   const checkModelCache = async () => {
     if ('caches' in window) {
@@ -361,6 +390,7 @@ export default function Dashboard() {
         resolved_by: "Local Analyzer (Edge)",
         prediction: "Healthy Leaf",
         confidence: 0.98,
+        vacuity: 0.05,
         explanation: "No disease detected. Keep monitoring regularly, maintain proper watering, and ensure adequate sunlight.",
         care_guide: [
           "Maintain consistent watering according to the crop's specific needs, ensuring well-drained soil.",
@@ -436,6 +466,7 @@ export default function Dashboard() {
             resolved_by: "Cloud Classifier (ConvNeXt)",
             prediction: data.prediction,
             confidence: data.confidence,
+            vacuity: 0.0,
             explanation: data.explanation,
             care_guide: data.care_guide
           });
@@ -452,6 +483,7 @@ export default function Dashboard() {
           resolved_by: "Local Analyzer (Fallback)",
           prediction: localPrediction,
           confidence: calibratedConfidence,
+          vacuity: localVacuity,
           explanation: fallback.explanation,
           care_guide: fallback.care_guide
         });
@@ -467,6 +499,7 @@ export default function Dashboard() {
         resolved_by: resolvedBy,
         prediction: localPrediction,
         confidence: calibratedConfidence,
+        vacuity: localVacuity,
         explanation: localInterpretation.explanation,
         care_guide: localInterpretation.care_guide
       });
@@ -521,30 +554,60 @@ export default function Dashboard() {
     setRunningInference(false);
   };
 
-  return (
-    <div className="min-h-screen bg-[#090D16] text-[#F8FAFC] font-sans pb-12 relative">
-      {/* Dynamic ambient glows */}
-      <div className="absolute top-[5%] left-[-10%] w-[30%] h-[30%] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
-      <div className="absolute top-[40%] right-[-10%] w-[40%] h-[40%] rounded-full bg-violet-600/5 blur-[120px] pointer-events-none" />
+  const getFSMClass = (stateId) => {
+    if (fsmState !== stateId) return "fsm-state-item";
+    let activeClass = "active";
+    if (stateId === "S3") activeClass = "active cloud-first";
+    if (stateId === "S4") activeClass = "active offline";
+    return `fsm-state-item ${activeClass}`;
+  };
 
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 15 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } 
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-bg text-text font-sans pb-12 transition-colors duration-200">
+      
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#090D16]/80 backdrop-blur-md border-b border-slate-800/80 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Leaf className="w-6 h-6 text-emerald-400" />
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-            Folia Telemetry
+      <header className="sticky top-0 z-50 bg-surface border-b border-border px-6 py-4 flex justify-between items-center transition-colors">
+        <div className="flex items-center gap-2.5">
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-primary">
+            <path d="M14 2C14 2 21 8 21 15C21 18.866 17.866 22 14 22C10.134 22 7 18.866 7 15C7 8 14 2 14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M14 2V22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M14 9C15.5 10.5 18 11 18 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M14 14C12.5 15.5 10 16 10 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span className="text-lg font-display font-semibold text-text">
+            Folia
           </span>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Authenticated User: {auth.currentUser?.email || "developer@folia.com"}
+        <div className="flex items-center gap-6">
+          {/* Dynamic dot indicator */}
+          <div className="flex items-center gap-2 text-[13px] font-medium text-text font-sans">
+            <span className={`w-2 h-2 rounded-full inline-block ${
+              !isOnline ? "bg-danger" : forceCloud ? "bg-accent" : "bg-primary"
+            }`} />
+            <span>{!isOnline ? "Edge Isolated Fallback" : forceCloud ? "Cloud-First Routing" : "Edge Connected"}</span>
           </div>
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-surface-2 border border-transparent hover:border-border text-text-muted hover:text-text cursor-pointer transition-all"
+            aria-label="Toggle Theme"
+          >
+            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
           
           <button 
             onClick={handleSignOut}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded border border-border bg-surface-2 hover:bg-surface text-text text-xs font-semibold cursor-pointer transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -558,24 +621,24 @@ export default function Dashboard() {
         {/* Left Column: Environmental Telemetry Settings & Database Stats (4 columns) */}
         <section className="lg:col-span-4 space-y-6">
           
-          {/* Controllers glassmorphic card */}
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              Environment Controllers
-            </h2>
+          {/* Controllers Card */}
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>Environment Controllers</h2>
+              <Activity className="w-4 h-4 text-primary" />
+            </div>
             
             {/* Connectivity Switch */}
-            <div className="flex items-center justify-between py-2 border-b border-slate-800/60">
+            <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-2.5">
                 {isOnline ? (
-                  <Wifi className="w-5 h-5 text-emerald-400" />
+                  <Wifi className="w-5 h-5 text-primary" />
                 ) : (
-                  <WifiOff className="w-5 h-5 text-red-400" />
+                  <WifiOff className="w-5 h-5 text-danger" />
                 )}
                 <div>
-                  <div className="text-sm font-semibold">Network Uplink</div>
-                  <div className="text-[10px] text-slate-500">{isOnline ? "Connected to Cloud" : "Offline Gating Active"}</div>
+                  <div className="text-[13px] font-semibold">Network Uplink</div>
+                  <div className="text-[10px] text-text-muted">{isOnline ? "Connected to Cloud" : "Offline Gating Active"}</div>
                 </div>
               </div>
               
@@ -586,15 +649,15 @@ export default function Dashboard() {
                   onChange={(e) => setIsOnline(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-faint after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
-            {/* WAN Latency slider */}
+            {/* WAN Latency Slider */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">WAN Latency</span>
-                <span className={isOnline ? "text-emerald-400" : "text-slate-500"}>
+                <span className="text-text-muted">WAN Latency</span>
+                <span className={isOnline ? "text-primary" : "text-text-faint"}>
                   {isOnline ? `${latency} ms` : "Offline"}
                 </span>
               </div>
@@ -605,18 +668,18 @@ export default function Dashboard() {
                 value={latency}
                 disabled={!isOnline}
                 onChange={(e) => setLatency(parseInt(e.target.value))}
-                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="slider-input accent-primary disabled:opacity-30 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* Battery status slider */}
+            {/* Battery Status Slider */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400 flex items-center gap-1">
-                  <Battery className="w-4 h-4 text-emerald-400" />
+                <span className="text-text-muted flex items-center gap-1">
+                  <Battery className="w-4 h-4 text-primary" />
                   Edge Node Battery
                 </span>
-                <span className={battery > 20 ? "text-emerald-400" : "text-red-400"}>
+                <span className={battery > 20 ? "text-primary" : "text-danger"}>
                   {battery}%
                 </span>
               </div>
@@ -626,13 +689,13 @@ export default function Dashboard() {
                 max="100"
                 value={battery}
                 onChange={(e) => setBattery(parseInt(e.target.value))}
-                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                className="slider-input accent-primary"
               />
             </div>
 
             {/* Cloud Forcing Toggle */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs font-semibold">
-              <span className="text-slate-400">Always Route to Cloud</span>
+            <div className="flex items-center justify-between pt-2 border-t border-border text-xs font-semibold">
+              <span className="text-text-muted">Always Route to Cloud</span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
                   type="checkbox" 
@@ -641,30 +704,55 @@ export default function Dashboard() {
                   onChange={(e) => setForceCloud(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 disabled:opacity-50"></div>
+                <div className="w-9 h-5 bg-border rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-faint after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary disabled:opacity-50"></div>
               </label>
             </div>
+
+            {/* Edge Decision Engine State (FSM) */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Decision Engine State (FSM)</span>
+              <div className="fsm-state-viewer">
+                <div className={getFSMClass("S1")}>
+                  <span className="state-title">S1: Edge Processing Only</span>
+                  <span className="state-desc">Low latency. Decides locally.</span>
+                </div>
+                <div className={getFSMClass("S2")}>
+                  <span className="state-title">S2: Adaptive Offloading</span>
+                  <span className="state-desc">Normal state. Offloads uncertain cases dynamically.</span>
+                </div>
+                <div className={getFSMClass("S3")}>
+                  <span className="state-title">S3: Cloud-First Forcing</span>
+                  <span className="state-desc">Forced cloud routing active.</span>
+                </div>
+                <div className={getFSMClass("S4")}>
+                  <span className="state-title">S4: Edge Isolated Fallback</span>
+                  <span className="state-desc">Offline blackout. Full local offline fallback.</span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* Offline Model Cache Card */}
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Server className="w-4 h-4 text-emerald-400" />
-              Offline Model Cache
-            </h2>
-            <p className="text-xs text-slate-400">
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>Offline Model Cache</h2>
+              <Server className="w-4 h-4 text-primary" />
+            </div>
+            
+            <p className="text-xs text-text-muted leading-relaxed">
               Download and cache the 45MB Edge Diagnostic Model locally to perform crop diagnostics offline.
             </p>
 
             {modelCached ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                <div className="flex items-center gap-2 text-primary text-xs font-semibold">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Model is cached on this device</span>
                 </div>
                 <button
                   onClick={clearModelCache}
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-950/30 hover:bg-red-900/30 border border-red-800/40 text-red-400 text-xs font-semibold cursor-pointer transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-danger/30 bg-surface-2 hover:bg-surface text-danger text-xs font-semibold cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Clear Model Cache
@@ -674,16 +762,16 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {downloadingModel ? (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-semibold text-slate-300">
+                    <div className="flex justify-between text-xs font-semibold text-text">
                       <span className="flex items-center gap-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
                         Downloading...
                       </span>
                       <span>{downloadProgress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="confidence-track">
                       <div
-                        className="h-full bg-emerald-500 transition-all duration-150"
+                        className="confidence-fill"
                         style={{ width: `${downloadProgress}%` }}
                       ></div>
                     </div>
@@ -691,7 +779,7 @@ export default function Dashboard() {
                 ) : (
                   <button
                     onClick={downloadEdgeModel}
-                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-950/30 hover:bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-xs font-semibold cursor-pointer transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-primary/30 bg-surface-2 hover:bg-surface text-primary text-xs font-semibold cursor-pointer transition-colors"
                   >
                     <Download className="w-4 h-4" />
                     Download Edge Model
@@ -702,40 +790,38 @@ export default function Dashboard() {
           </div>
 
           {/* Database Analytics Stats */}
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                User Telemetry Stats
-              </h2>
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>User Telemetry Stats</h2>
               <button 
                 onClick={fetchTelemetry}
-                className="p-1.5 rounded-lg bg-slate-800/40 hover:bg-slate-800 border border-slate-700/50 text-slate-400 hover:text-white cursor-pointer transition-colors"
+                className="p-1 rounded hover:bg-surface-2 border border-border text-text-muted hover:text-text cursor-pointer transition-colors"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3 h-3" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-850/60 text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Total Scans</div>
-                <div className="text-2xl font-black text-white mt-1">{stats.total_diagnoses}</div>
+              <div className="p-4 rounded bg-surface-2 border border-border text-center">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Total Scans</div>
+                <div className="text-2xl font-bold text-text mt-1">{stats.total_diagnoses}</div>
               </div>
               
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-850/60 text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Cloud Diagnostics</div>
-                <div className="text-2xl font-black text-brandBlue mt-1">
+              <div className="p-4 rounded bg-surface-2 border border-border text-center">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Cloud Diagnostics</div>
+                <div className="text-2xl font-bold text-cloud mt-1">
                   {stats.total_diagnoses > 0 ? `${Math.round((stats.cloud_resolved / stats.total_diagnoses) * 100)}%` : "0%"}
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-850/60 text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Edge Diagnostics</div>
-                <div className="text-2xl font-black text-brandGreen mt-1">{stats.edge_resolved}</div>
+              <div className="p-4 rounded bg-surface-2 border border-border text-center">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Edge Diagnostics</div>
+                <div className="text-2xl font-bold text-primary mt-1">{stats.edge_resolved}</div>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-850/60 text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500">WAN Latency</div>
-                <div className="text-2xl font-black text-brandYellow mt-1">{stats.avg_latency_ms} <span className="text-xs">ms</span></div>
+              <div className="p-4 rounded bg-surface-2 border border-border text-center">
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">WAN Latency</div>
+                <div className="text-2xl font-bold text-accent mt-1">{stats.avg_latency_ms} <span className="text-xs">ms</span></div>
               </div>
             </div>
           </div>
@@ -743,10 +829,10 @@ export default function Dashboard() {
 
         {/* Center Column: Sandbox Diagnostics Leaf Capture (4 columns) */}
         <section className="lg:col-span-4 space-y-6">
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-              Crop Sample Sandbox
-            </h2>
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>Crop Sample Sandbox</h2>
+            </div>
 
             {/* Grid of sample crops */}
             <div className="grid grid-cols-2 gap-2.5">
@@ -758,14 +844,11 @@ export default function Dashboard() {
                     setCustomImage(null);
                     setDiagnosisResult(null);
                   }}
-                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 text-left cursor-pointer transition-all duration-300 ${
-                    selectedSample?.id === sample.id 
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400" 
-                      : "bg-slate-950/40 border-slate-850/80 hover:border-slate-700 text-slate-400"
-                  }`}
+                  className={`crop-sample-btn ${selectedSample?.id === sample.id ? "selected" : ""}`}
                 >
-                  <div className="w-5 h-5 rounded overflow-hidden shrink-0 border border-slate-800" dangerouslySetInnerHTML={{ __html: sample.image.replace("data:image/svg+xml;utf8,", "") }} />
-                  <span className="truncate">{sample.name}</span>
+                  <span className={selectedSample?.id === sample.id ? "font-display italic font-semibold text-primary" : ""}>
+                    {sample.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -773,10 +856,10 @@ export default function Dashboard() {
             {/* Leaf Image Upload Card */}
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-800 hover:border-emerald-500/40 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors bg-slate-950/20 relative overflow-hidden h-48"
+              className="upload-area h-48 relative overflow-hidden"
             >
               {customImage || selectedSample ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
+                <div className="absolute inset-0 flex items-center justify-center bg-surface-2">
                   {customImage ? (
                     <img src={customImage} alt="Crop Scan Preview" className="w-full h-full object-cover" />
                   ) : (
@@ -784,19 +867,17 @@ export default function Dashboard() {
                   )}
                   {/* Laser effect overlay */}
                   {runningInference && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/10 to-transparent animate-pulse">
-                      <div className="h-[2px] bg-emerald-400/80 absolute left-0 right-0 top-0 animate-[scan_2s_infinite_linear]" style={{ animation: "scan 2s infinite linear" }} />
+                    <div className="absolute inset-0 bg-primary/5">
+                      <div className="h-[1px] bg-primary/80 absolute left-0 right-0 top-0 animate-[scan_2s_infinite_linear]" style={{ animation: "scan 2s infinite linear" }} />
                     </div>
                   )}
                 </div>
               ) : (
                 <>
-                  <div className="p-3 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
-                    <UploadCloud className="w-6 h-6" />
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs font-bold text-white">Upload Crop Leaf Image</div>
-                    <div className="text-[10px] text-slate-500 mt-1">PNG, JPEG (supports HD resolution)</div>
+                  <UploadCloud className="upload-icon" />
+                  <div className="text-center font-sans">
+                    <div className="text-xs font-semibold text-text">Drop leaf image here or click to browse</div>
+                    <div className="text-[10px] text-text-faint mt-1">PNG, JPEG (supports HD resolution)</div>
                   </div>
                 </>
               )}
@@ -813,7 +894,7 @@ export default function Dashboard() {
             <button
               onClick={runDiagnostics}
               disabled={runningInference || (!selectedSample && !customImage)}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:opacity-95 text-slate-950 font-extrabold text-sm shadow-[0_0_20px_rgba(16,185,129,0.15)] flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn-primary w-full"
             >
               {runningInference ? (
                 <>
@@ -822,7 +903,7 @@ export default function Dashboard() {
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 fill-slate-950" />
+                  <Play className="w-4 h-4 fill-white" />
                   Analyze Foliar Diagnostics
                 </>
               )}
@@ -830,25 +911,21 @@ export default function Dashboard() {
 
             {/* Interactive pipeline step indicator */}
             {inferenceSteps.length > 0 && (
-              <div className="space-y-2.5 pt-2 border-t border-slate-800/60">
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Analysis Steps</div>
-                {inferenceSteps.map(step => (
-                  <div key={step.id} className="flex gap-3 text-xs bg-slate-950/30 p-2.5 rounded-lg border border-slate-850">
-                    <div className="shrink-0">
-                      {step.status === "processing" ? (
-                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                      ) : step.status === "failed" ? (
-                        <AlertCircle className="w-4 h-4 text-brandRed" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      )}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Analysis Steps</span>
+                <div className="inference-flow">
+                  {inferenceSteps.map((step, idx) => (
+                    <div key={step.id} className={`flow-step ${step.status === "complete" ? "complete" : step.status === "processing" ? "processing" : ""}`}>
+                      <div className="step-node">
+                        {step.status === "complete" ? "✓" : `0${idx + 1}`}
+                      </div>
+                      <div className="step-details">
+                        <h4>{step.title}</h4>
+                        <p>{step.desc}</p>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-bold text-slate-300">{step.title}</div>
-                      <div className="text-[10px] text-slate-500 mt-0.5">{step.desc}</div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -857,67 +934,64 @@ export default function Dashboard() {
         {/* Right Column: Diagnostic Outcomes & Logs (4 columns) */}
         <section className="lg:col-span-4 space-y-6">
           
-          {/* Outcome card: Simplified, no ML jargon */}
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-5 relative overflow-hidden">
-            
-            {/* Background highlights */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
-            
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-400" />
-              Diagnostics Outcome
-            </h2>
+          {/* Outcome card */}
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>Diagnostics Outcome</h2>
+              <FileText className="w-4 h-4 text-primary" />
+            </div>
 
             {diagnosisResult ? (
               <div className="space-y-4">
                 
                 {/* Result header */}
-                <div className="flex justify-between items-start gap-4">
-                  <div>
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500 px-2 py-0.5 rounded bg-slate-950/60 border border-slate-850">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
                       Resolved via {diagnosisResult.resolved_by}
                     </span>
-                    <h3 className="text-xl font-black text-white mt-1.5">
-                      {diagnosisResult.prediction.replace(/___/g, " ").replace(/__/g, " ").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                    </h3>
+                    {/* Vacuity badge */}
+                    {diagnosisResult.vacuity !== undefined && (
+                      <span className="vacuity-badge">
+                        Vacuity: {diagnosisResult.vacuity}
+                      </span>
+                    )}
                   </div>
                   
-                  {/* Gauge Certainty Circle */}
-                  <div className="shrink-0 flex flex-col items-center">
-                    <div className="relative w-14 h-14 flex items-center justify-center">
-                      <svg className="w-full h-full transform -rotate-90">
-                        <circle cx="28" cy="28" r="24" stroke="#1E293B" strokeWidth="3" fill="transparent" />
-                        <circle cx="28" cy="28" r="24" stroke="#10B981" strokeWidth="3" fill="transparent" 
-                          strokeDasharray={150.7}
-                          strokeDashoffset={150.7 - (150.7 * (diagnosisResult.confidence || 0.95))}
-                        />
-                      </svg>
-                      <span className="absolute text-[10px] font-black text-emerald-400">
-                        {Math.round((diagnosisResult.confidence || 0.95) * 100)}%
-                      </span>
+                  <h3 className="results-title">
+                    {diagnosisResult.prediction.replace(/___/g, " ").replace(/__/g, " ").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                  </h3>
+                  
+                  {/* Confidence Bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-semibold text-text-muted">
+                      <span>Certainty</span>
+                      <span className="text-primary font-bold">{Math.round((diagnosisResult.confidence || 0.95) * 100)}%</span>
                     </div>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase mt-1">Certainty</span>
+                    <div className="confidence-track">
+                      <div 
+                        className="confidence-fill" 
+                        style={{ width: `${(diagnosisResult.confidence || 0.95) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Explanation text */}
                 <div className="space-y-2 text-xs">
-                  <div className="font-bold text-slate-300">Explanation</div>
-                  <p className="text-slate-400 leading-relaxed bg-slate-950/30 p-3.5 rounded-xl border border-slate-850/60">
+                  <div className="font-bold text-text">Explanation</div>
+                  <p className="text-text-muted leading-relaxed bg-surface-2 p-3.5 rounded border border-border">
                     {diagnosisResult.explanation}
                   </p>
                 </div>
 
                 {/* Actionable treatment plan */}
-                <div className="space-y-2 text-xs">
-                  <div className="font-bold text-slate-300">Agricultural Care Guide</div>
-                  <ul className="space-y-2">
+                <div className="space-y-3 text-xs">
+                  <div className="font-bold text-text">Agricultural Care Guide</div>
+                  <ul className="space-y-3">
                     {diagnosisResult.care_guide?.map((step, idx) => (
-                      <li key={idx} className="flex gap-2.5 text-slate-400 leading-relaxed">
-                        <span className="w-4 h-4 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold text-[9px] flex items-center justify-center shrink-0 mt-0.5">
-                          {idx + 1}
-                        </span>
-                        <span>{step}</span>
+                      <li key={idx} className="care-guide-step">
+                        {step}
                       </li>
                     ))}
                   </ul>
@@ -925,54 +999,72 @@ export default function Dashboard() {
 
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-500 text-xs">
-                <Leaf className="w-8 h-8 mx-auto text-slate-700 animate-pulse mb-3" />
+              <div className="text-center py-12 text-text-muted text-xs font-sans">
+                <Leaf className="w-8 h-8 mx-auto text-text-faint mb-3" />
                 No active diagnosis.<br />Click 'Analyze Foliar Diagnostics' to begin.
               </div>
             )}
           </div>
 
           {/* User's recent transaction logs */}
-          <div className="rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md p-6 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-              Your Diagnostic Logs
-            </h2>
+          <div className="telemetry-card">
+            <div className="panel-header">
+              <h2>Your Diagnostic Logs</h2>
+            </div>
 
-            <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+            <div className="overflow-x-auto max-h-[300px] border border-border rounded">
               {loadingLogs ? (
-                <div className="text-center py-8 text-slate-500 text-xs flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                <div className="text-center py-8 text-text-muted text-xs flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
                   Loading database records...
                 </div>
               ) : logs.length > 0 ? (
-                logs.map(log => {
-                  const resolvedClass = log.cloud_prediction || log.local_prediction;
-                  const parsedName = resolvedClass 
-                    ? resolvedClass.replace(/___/g, " ").replace(/__/g, " ").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-                    : "Unknown Diagnosis";
-                  
-                  return (
-                    <div key={log.id} className="p-3 rounded-xl bg-slate-950/30 border border-slate-850/60 text-xs flex flex-col gap-1.5 hover:border-slate-700 transition-colors">
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-500 font-semibold">Device: {log.device_id}</span>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest ${
-                          log.resolved_by === "cloud" 
-                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" 
-                            : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        }`}>
-                          {log.resolved_by}
-                        </span>
-                      </div>
-                      <div className="font-bold text-slate-300 truncate">{parsedName}</div>
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 pt-0.5 border-t border-slate-850/40">
-                        <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        <span>Latency: {log.network_latency ? `${log.network_latency} ms` : "0 ms"}</span>
-                      </div>
-                    </div>
-                  );
-                })
+                <table className="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Diagnosis</th>
+                      <th>Method</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log, index) => {
+                      const resolvedClass = log.cloud_prediction || log.local_prediction;
+                      const parsedName = resolvedClass 
+                        ? resolvedClass.replace(/___/g, " ").replace(/__/g, " ").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+                        : "Unknown Diagnosis";
+                      
+                      const isHealthy = parsedName.toLowerCase().includes("healthy");
+                      const isCloud = log.resolved_by === "cloud";
+                      
+                      let chipClass = "status-chip healthy";
+                      if (isCloud) {
+                        chipClass = "status-chip cloud";
+                      } else if (!isHealthy) {
+                        chipClass = "status-chip disease";
+                      }
+                      
+                      return (
+                        <tr key={log.id}>
+                          <td>
+                            {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="font-semibold truncate max-w-[140px]" title={parsedName}>
+                            {parsedName}
+                          </td>
+                          <td>
+                            <span className={chipClass}>
+                              <span className="status-chip-dot" />
+                              {log.resolved_by}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               ) : (
-                <div className="text-center py-8 text-slate-500 text-xs">
+                <div className="text-center py-8 text-text-muted text-xs">
                   No scan logs stored in your secure account.
                 </div>
               )}
