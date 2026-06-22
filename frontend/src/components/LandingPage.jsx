@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { auth } from "../firebase";
 import landingImg from "../assets/landing_plant.jpg";
 import { Camera, ShieldCheck, ArrowRight, Leaf, MessageCircle, Sun, Moon, Download } from "lucide-react";
 
@@ -9,6 +10,13 @@ export default function LandingPage() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("folia-theme") || "light";
   });
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) navigate("/dashboard", { replace: true });
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, googleProvider } from "../firebase";
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup 
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  onAuthStateChanged
 } from "firebase/auth";
 import { motion } from "framer-motion";
 import { 
@@ -24,6 +25,13 @@ export default function AuthPortal() {
   });
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) navigate("/dashboard", { replace: true });
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
