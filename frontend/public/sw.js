@@ -1,89 +1,64 @@
-const CACHE_NAME = "folia-cache-v2";
+const CACHE_NAME = "folia-cache-v3";
 const ASSETS = [
   "/",
   "/index.html",
-  "/manifest.json",
-  "/logo192.png",
-  "/logo512.png",
-  "/favicon.svg",
-  "/favicon.ico"
+  "/manifest.json"
 ];
 
-// Install event - caching the application shell
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate event - clearing legacy caches
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((key) => key !== CACHE_NAME && key !== "folia-model-cache" ? caches.delete(key) : undefined))
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - Network-First for HTML/Navigations, Stale-While-Revalidate for other static assets
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-  
-  // Do not intercept API backend transactions
+
   if (
-    e.request.url.includes("/diagnose") || 
-    e.request.url.includes("/stats") || 
+    e.request.url.includes("/diagnose") ||
+    e.request.url.includes("/stats") ||
     e.request.url.includes("/logs")
   ) {
     return;
   }
 
-  const isNavigation = e.request.mode === "navigate" || e.request.url.endsWith(".html") || e.request.url === self.location.origin + "/";
+  const isNavigation = e.request.mode === "navigate";
 
   if (isNavigation) {
-    // Network-First strategy for document/navigation requests
     e.respondWith(
       fetch(e.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          if (networkResponse && networkResponse.ok) {
             const cacheCopy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(e.request, cacheCopy);
-            });
+            caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", cacheCopy));
+            return networkResponse;
           }
-          return networkResponse;
+          return caches.match("/index.html").then((cached) => cached || networkResponse);
         })
-        .catch(() => {
-          return caches.match("/index.html");
-        })
+        .catch(() => caches.match("/index.html"))
     );
   } else {
-    // Stale-While-Revalidate strategy for static assets
     e.respondWith(
       caches.match(e.request).then((cachedResponse) => {
         const networkFetch = fetch(e.request)
           .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
+            if (networkResponse && networkResponse.ok) {
               const cacheCopy = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(e.request, cacheCopy);
-              });
+              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
             }
             return networkResponse;
           })
-          .catch(() => {
-            // Silence network error
-          });
+          .catch(() => undefined);
 
         return cachedResponse || networkFetch;
       })

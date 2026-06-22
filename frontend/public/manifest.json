@@ -1,7 +1,7 @@
 {
   "short_name": "Folia",
-  "name": "Folia — Crop Health Diagnostics",
-  "description": "Innovative, secure, and offline-first crop diagnostics and care system.",
+  "name": "Folia — Plant Disease Scanner",
+  "description": "Snap a photo of your plant leaf and instantly find out what's wrong. Works offline too.",
   "icons": [
     {
       "src": "logo192.png",

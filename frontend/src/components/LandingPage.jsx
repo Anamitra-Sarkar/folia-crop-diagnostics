@@ -281,8 +281,8 @@ export default function LandingPage() {
           </div>
 
           <div className="flex gap-6 text-[13px] text-text-muted">
-            <a href="#" className="hover:text-text transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-text transition-colors">Contact Us</a>
+            <a href="#features" className="hover:text-text transition-colors">About</a>
+            <a href="#how-it-works" className="hover:text-text transition-colors">Help</a>
           </div>
         </div>
       </footer>

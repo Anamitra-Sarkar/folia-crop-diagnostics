@@ -17,10 +17,10 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#090D16] text-[#F8FAFC] flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-bg text-text flex items-center justify-center font-sans transition-colors duration-200">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-          <p className="text-slate-400 text-xs tracking-wider">Verifying secure session...</p>
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <p className="text-text-muted text-xs tracking-wider">Loading...</p>
         </div>
       </div>
     );
