@@ -7,6 +7,7 @@ pillow==10.2.0
 python-multipart==0.0.6
 firebase-admin==6.2.0
 groq==0.4.2
+httpx==0.27.2
 python-dotenv==1.0.0
 huggingface_hub==0.20.3
 safetensors==0.4.1
