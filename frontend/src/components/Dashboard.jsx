@@ -193,6 +193,7 @@ export default function Dashboard() {
   const [downloadProgress, setDownloadProgress] = useState(0);
 
   const fileInputRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Finite State Machine dynamic mapping
   let fsmState = "S1";
@@ -234,7 +235,7 @@ export default function Dashboard() {
 
   const downloadEdgeModel = async () => {
     if (!('caches' in window)) {
-      alert("Browser caching not supported in this environment.");
+      alert("Your browser doesn't support offline storage. Try using Chrome or Edge.");
       return;
     }
     setDownloadingModel(true);
@@ -266,7 +267,7 @@ export default function Dashboard() {
       setDownloadProgress(100);
     } catch (err) {
       console.error(err);
-      alert("Failed to download local model. Ensure your connection is active and try again.");
+      alert("Download failed. Please check your internet connection and try again.");
     } finally {
       setDownloadingModel(false);
     }
@@ -336,19 +337,46 @@ export default function Dashboard() {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
-        setCustomImage(uploadEvent.target.result);
-        setSelectedSample(null);
-        setDiagnosisResult(null);
-      };
-      reader.readAsDataURL(file);
+      processImageFile(file);
+    }
+  };
+
+  const processImageFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setCustomImage(uploadEvent.target.result);
+      setSelectedSample(null);
+      setDiagnosisResult(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      processImageFile(file);
     }
   };
 
   const runDiagnostics = async () => {
     if (!isOnline && !modelCached) {
-      alert("Offline Mode is active but the local edge model has not been downloaded/cached yet. Please connect online to download the local model first.");
+      alert("You're offline, but the scanner hasn't been downloaded yet. Please connect to the internet and download it first from the 'Offline Mode' section.");
       return;
     }
     setRunningInference(true);
@@ -356,7 +384,7 @@ export default function Dashboard() {
 
     // Initial state: stage 1 check
     const steps = [
-      { id: 1, title: "Crop Image Scanning", status: "processing", desc: "Analyzing leaf geometry and structure..." }
+      { id: 1, title: "Scanning Image", status: "processing", desc: "Looking at your plant photo..." }
     ];
     setInferenceSteps(steps);
 
@@ -384,10 +412,10 @@ export default function Dashboard() {
     // Stage 1 Filter outcome
     if (isHealthy && selectedSample?.id === "tomato_healthy") {
       setInferenceSteps([
-        { id: 1, title: "Scan Complete", status: "complete", desc: "No disease markers found. Terminating early." }
+        { id: 1, title: "Scan Complete", status: "complete", desc: "No disease found. Your plant looks healthy!" }
       ]);
       const healthyResult = {
-        resolved_by: "Local Analyzer (Edge)",
+        resolved_by: "On-Device Scanner",
         prediction: "Healthy Leaf",
         confidence: 0.98,
         vacuity: 0.05,
@@ -419,17 +447,17 @@ export default function Dashboard() {
     }
 
     steps[0].status = "complete";
-    steps[0].desc = "Foliar anomalies found. Running edge classifier model.";
-    steps.push({ id: 2, title: "Edge Analytics Model", status: "processing", desc: "Evaluating disease features locally..." });
+    steps[0].desc = "Possible issue detected. Identifying the disease...";
+    steps.push({ id: 2, title: "Identifying Disease", status: "processing", desc: "Checking against known plant diseases..." });
     setInferenceSteps([...steps]);
 
     await new Promise(resolve => setTimeout(resolve, 700));
 
     steps[1].status = "complete";
-    steps[1].desc = `Edge prediction: ${localPrediction.replace("__", " ")}`;
+    steps[1].desc = `Possible match: ${localPrediction.replace("__", " ").replace(/_/g, " ")}`;
 
     if (shouldOffload) {
-      steps.push({ id: 3, title: "Cloud Offloading System", status: "processing", desc: `Routing complex diagnostic target to server (WAN: ${latency}ms)...` });
+      steps.push({ id: 3, title: "Getting a Deeper Look", status: "processing", desc: "Connecting to our advanced scanner for a more accurate result..." });
       setInferenceSteps([...steps]);
 
       try {
@@ -461,9 +489,9 @@ export default function Dashboard() {
         if (res.ok) {
           const data = await res.json();
           steps[2].status = "complete";
-          steps[2].desc = "Cloud classifier resolved diagnosis.";
+          steps[2].desc = "Advanced scan complete.";
           setDiagnosisResult({
-            resolved_by: "Cloud Classifier (ConvNeXt)",
+            resolved_by: "Advanced Scanner",
             prediction: data.prediction,
             confidence: data.confidence,
             vacuity: 0.0,
@@ -476,11 +504,11 @@ export default function Dashboard() {
         }
       } catch (err) {
         steps[2].status = "failed";
-        steps[2].desc = "Cloud server unreachable. Deploying edge fallback.";
+        steps[2].desc = "Server unavailable. Using on-device results instead.";
         
         const fallback = getLocalInterpretation(localPrediction);
         setDiagnosisResult({
-          resolved_by: "Local Analyzer (Fallback)",
+          resolved_by: "On-Device Scanner (Fallback)",
           prediction: localPrediction,
           confidence: calibratedConfidence,
           vacuity: localVacuity,
@@ -489,11 +517,11 @@ export default function Dashboard() {
         });
       }
     } else {
-      steps.push({ id: 3, title: "Edge Processing Accepted", status: "complete", desc: "Local confidence high. Accept local model output." });
+      steps.push({ id: 3, title: "Result Ready", status: "complete", desc: "High confidence result found on your device." });
       setInferenceSteps([...steps]);
 
       const localInterpretation = getLocalInterpretation(localPrediction);
-      const resolvedBy = !isOnline ? "Local Analyzer (Offline)" : "Local Analyzer (Edge)";
+      const resolvedBy = !isOnline ? "On-Device Scanner (Offline)" : "On-Device Scanner";
 
       setDiagnosisResult({
         resolved_by: resolvedBy,
@@ -589,12 +617,11 @@ export default function Dashboard() {
         </div>
         
         <div className="flex items-center gap-6">
-          {/* Dynamic dot indicator */}
           <div className="flex items-center gap-2 text-[13px] font-medium text-text font-sans">
             <span className={`w-2 h-2 rounded-full inline-block ${
               !isOnline ? "bg-danger" : forceCloud ? "bg-accent" : "bg-primary"
             }`} />
-            <span>{!isOnline ? "Edge Isolated Fallback" : forceCloud ? "Cloud-First Routing" : "Edge Connected"}</span>
+            <span>{!isOnline ? "Offline Mode" : forceCloud ? "Online — Enhanced" : "Online"}</span>
           </div>
 
           <button
@@ -621,13 +648,13 @@ export default function Dashboard() {
         {/* Left Column: Environmental Telemetry Settings & Database Stats (4 columns) */}
         <section className="lg:col-span-4 space-y-6">
           
-          {/* Controllers Card */}
+          {/* Settings Card */}
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>Environment Controllers</h2>
+              <h2>Settings</h2>
               <Activity className="w-4 h-4 text-primary" />
             </div>
-            
+
             {/* Connectivity Switch */}
             <div className="flex items-center justify-between py-2 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -637,14 +664,14 @@ export default function Dashboard() {
                   <WifiOff className="w-5 h-5 text-danger" />
                 )}
                 <div>
-                  <div className="text-[13px] font-semibold">Network Uplink</div>
-                  <div className="text-[10px] text-text-muted">{isOnline ? "Connected to Cloud" : "Offline Gating Active"}</div>
+                  <div className="text-[13px] font-semibold">Internet Connection</div>
+                  <div className="text-[10px] text-text-muted">{isOnline ? "Connected" : "Working offline"}</div>
                 </div>
               </div>
-              
+
               <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={isOnline}
                   onChange={(e) => setIsOnline(e.target.checked)}
                   className="sr-only peer"
@@ -653,15 +680,15 @@ export default function Dashboard() {
               </label>
             </div>
 
-            {/* WAN Latency Slider */}
+            {/* Connection Speed Slider */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-text-muted">WAN Latency</span>
+                <span className="text-text-muted">Connection Speed</span>
                 <span className={isOnline ? "text-primary" : "text-text-faint"}>
-                  {isOnline ? `${latency} ms` : "Offline"}
+                  {isOnline ? (latency < 100 ? "Fast" : latency < 250 ? "Moderate" : "Slow") : "Offline"}
                 </span>
               </div>
-              <input 
+              <input
                 type="range"
                 min="10"
                 max="500"
@@ -677,13 +704,13 @@ export default function Dashboard() {
               <div className="flex justify-between text-xs font-semibold">
                 <span className="text-text-muted flex items-center gap-1">
                   <Battery className="w-4 h-4 text-primary" />
-                  Edge Node Battery
+                  Device Battery
                 </span>
                 <span className={battery > 20 ? "text-primary" : "text-danger"}>
                   {battery}%
                 </span>
               </div>
-              <input 
+              <input
                 type="range"
                 min="5"
                 max="100"
@@ -693,12 +720,12 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Cloud Forcing Toggle */}
+            {/* Enhanced Analysis Toggle */}
             <div className="flex items-center justify-between pt-2 border-t border-border text-xs font-semibold">
-              <span className="text-text-muted">Always Route to Cloud</span>
+              <span className="text-text-muted">Use Enhanced Analysis</span>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={forceCloud}
                   disabled={!isOnline}
                   onChange={(e) => setForceCloud(e.target.checked)}
@@ -708,54 +735,54 @@ export default function Dashboard() {
               </label>
             </div>
 
-            {/* Edge Decision Engine State (FSM) */}
+            {/* Analysis Mode Indicator */}
             <div className="space-y-3 pt-2 border-t border-border">
-              <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Decision Engine State (FSM)</span>
+              <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Current Mode</span>
               <div className="fsm-state-viewer">
                 <div className={getFSMClass("S1")}>
-                  <span className="state-title">S1: Edge Processing Only</span>
-                  <span className="state-desc">Low latency. Decides locally.</span>
+                  <span className="state-title">Quick Scan</span>
+                  <span className="state-desc">Fast results on your device.</span>
                 </div>
                 <div className={getFSMClass("S2")}>
-                  <span className="state-title">S2: Adaptive Offloading</span>
-                  <span className="state-desc">Normal state. Offloads uncertain cases dynamically.</span>
+                  <span className="state-title">Smart Scan</span>
+                  <span className="state-desc">Uses online help for tricky cases.</span>
                 </div>
                 <div className={getFSMClass("S3")}>
-                  <span className="state-title">S3: Cloud-First Forcing</span>
-                  <span className="state-desc">Forced cloud routing active.</span>
+                  <span className="state-title">Deep Scan</span>
+                  <span className="state-desc">Always uses advanced online analysis.</span>
                 </div>
                 <div className={getFSMClass("S4")}>
-                  <span className="state-title">S4: Edge Isolated Fallback</span>
-                  <span className="state-desc">Offline blackout. Full local offline fallback.</span>
+                  <span className="state-title">Offline Scan</span>
+                  <span className="state-desc">No internet — using on-device analysis only.</span>
                 </div>
               </div>
             </div>
 
           </div>
 
-          {/* Offline Model Cache Card */}
+          {/* Offline Mode Card */}
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>Offline Model Cache</h2>
+              <h2>Offline Mode</h2>
               <Server className="w-4 h-4 text-primary" />
             </div>
-            
+
             <p className="text-xs text-text-muted leading-relaxed">
-              Download and cache the 45MB Edge Diagnostic Model locally to perform crop diagnostics offline.
+              Download the scanner to your device so you can diagnose plants even without internet.
             </p>
 
             {modelCached ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-primary text-xs font-semibold">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Model is cached on this device</span>
+                  <span>Ready for offline use</span>
                 </div>
                 <button
                   onClick={clearModelCache}
                   className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-danger/30 bg-surface-2 hover:bg-surface text-danger text-xs font-semibold cursor-pointer transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Clear Model Cache
+                  Remove Offline Data
                 </button>
               </div>
             ) : (
@@ -782,18 +809,18 @@ export default function Dashboard() {
                     className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded border border-primary/30 bg-surface-2 hover:bg-surface text-primary text-xs font-semibold cursor-pointer transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    Download Edge Model
+                    Download for Offline Use
                   </button>
                 )}
               </div>
             )}
           </div>
 
-          {/* Database Analytics Stats */}
+          {/* Your Stats */}
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>User Telemetry Stats</h2>
-              <button 
+              <h2>Your Activity</h2>
+              <button
                 onClick={fetchTelemetry}
                 className="p-1 rounded hover:bg-surface-2 border border-border text-text-muted hover:text-text cursor-pointer transition-colors"
               >
@@ -806,21 +833,21 @@ export default function Dashboard() {
                 <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Total Scans</div>
                 <div className="text-2xl font-bold text-text mt-1">{stats.total_diagnoses}</div>
               </div>
-              
+
               <div className="p-4 rounded bg-surface-2 border border-border text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Cloud Diagnostics</div>
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Enhanced Scans</div>
                 <div className="text-2xl font-bold text-cloud mt-1">
                   {stats.total_diagnoses > 0 ? `${Math.round((stats.cloud_resolved / stats.total_diagnoses) * 100)}%` : "0%"}
                 </div>
               </div>
 
               <div className="p-4 rounded bg-surface-2 border border-border text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Edge Diagnostics</div>
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Quick Scans</div>
                 <div className="text-2xl font-bold text-primary mt-1">{stats.edge_resolved}</div>
               </div>
 
               <div className="p-4 rounded bg-surface-2 border border-border text-center">
-                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">WAN Latency</div>
+                <div className="text-[10px] uppercase font-bold tracking-widest text-text-faint">Avg Speed</div>
                 <div className="text-2xl font-bold text-accent mt-1">{stats.avg_latency_ms} <span className="text-xs">ms</span></div>
               </div>
             </div>
@@ -831,7 +858,7 @@ export default function Dashboard() {
         <section className="lg:col-span-4 space-y-6">
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>Crop Sample Sandbox</h2>
+              <h2>Scan a Plant</h2>
             </div>
 
             {/* Grid of sample crops */}
@@ -853,22 +880,24 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* Leaf Image Upload Card */}
-            <div 
+            {/* Image Upload Card with Drag & Drop */}
+            <div
               onClick={() => fileInputRef.current?.click()}
-              className="upload-area h-48 relative overflow-hidden"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`upload-area h-48 relative overflow-hidden ${isDragging ? "border-primary bg-primary/5" : ""}`}
             >
               {customImage || selectedSample ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-surface-2">
                   {customImage ? (
-                    <img src={customImage} alt="Crop Scan Preview" className="w-full h-full object-cover" />
+                    <img src={customImage} alt="Your uploaded plant photo" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-24 h-24" dangerouslySetInnerHTML={{ __html: selectedSample.image.replace("data:image/svg+xml;utf8,", "") }} />
                   )}
-                  {/* Laser effect overlay */}
                   {runningInference && (
                     <div className="absolute inset-0 bg-primary/5">
-                      <div className="h-[1px] bg-primary/80 absolute left-0 right-0 top-0 animate-[scan_2s_infinite_linear]" style={{ animation: "scan 2s infinite linear" }} />
+                      <div className="h-[1px] bg-primary/80 absolute left-0 right-0 top-0" style={{ animation: "scan 2s infinite linear" }} />
                     </div>
                   )}
                 </div>
@@ -876,17 +905,19 @@ export default function Dashboard() {
                 <>
                   <UploadCloud className="upload-icon" />
                   <div className="text-center font-sans">
-                    <div className="text-xs font-semibold text-text">Drop leaf image here or click to browse</div>
-                    <div className="text-[10px] text-text-faint mt-1">PNG, JPEG (supports HD resolution)</div>
+                    <div className="text-xs font-semibold text-text">
+                      {isDragging ? "Drop your image here" : "Drag & drop a leaf photo, or click to browse"}
+                    </div>
+                    <div className="text-[10px] text-text-faint mt-1">PNG, JPEG accepted</div>
                   </div>
                 </>
               )}
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleImageUpload} 
-                accept="image/*" 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
               />
             </div>
 
@@ -899,12 +930,12 @@ export default function Dashboard() {
               {runningInference ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing Crop Tissues...
+                  Scanning your plant...
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-white" />
-                  Analyze Foliar Diagnostics
+                  Scan for Diseases
                 </>
               )}
             </button>
@@ -912,7 +943,7 @@ export default function Dashboard() {
             {/* Interactive pipeline step indicator */}
             {inferenceSteps.length > 0 && (
               <div className="space-y-3 pt-2 border-t border-border">
-                <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Analysis Steps</span>
+                <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Progress</span>
                 <div className="inference-flow">
                   {inferenceSteps.map((step, idx) => (
                     <div key={step.id} className={`flow-step ${step.status === "complete" ? "complete" : step.status === "processing" ? "processing" : ""}`}>
@@ -934,43 +965,34 @@ export default function Dashboard() {
         {/* Right Column: Diagnostic Outcomes & Logs (4 columns) */}
         <section className="lg:col-span-4 space-y-6">
           
-          {/* Outcome card */}
+          {/* Results card */}
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>Diagnostics Outcome</h2>
+              <h2>Results</h2>
               <FileText className="w-4 h-4 text-primary" />
             </div>
 
             {diagnosisResult ? (
               <div className="space-y-4">
-                
-                {/* Result header */}
+
                 <div className="space-y-3">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                      Resolved via {diagnosisResult.resolved_by}
-                    </span>
-                    {/* Vacuity badge */}
-                    {diagnosisResult.vacuity !== undefined && (
-                      <span className="vacuity-badge">
-                        Vacuity: {diagnosisResult.vacuity}
-                      </span>
-                    )}
-                  </div>
-                  
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
+                    {diagnosisResult.resolved_by.includes("Cloud") ? "Enhanced scan result" : diagnosisResult.resolved_by.includes("Offline") ? "Offline scan result" : "Scan result"}
+                  </span>
+
                   <h3 className="results-title">
                     {diagnosisResult.prediction.replace(/___/g, " ").replace(/__/g, " ").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                   </h3>
-                  
+
                   {/* Confidence Bar */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs font-semibold text-text-muted">
-                      <span>Certainty</span>
+                      <span>Confidence</span>
                       <span className="text-primary font-bold">{Math.round((diagnosisResult.confidence || 0.95) * 100)}%</span>
                     </div>
                     <div className="confidence-track">
-                      <div 
-                        className="confidence-fill" 
+                      <div
+                        className="confidence-fill"
                         style={{ width: `${(diagnosisResult.confidence || 0.95) * 100}%` }}
                       />
                     </div>
@@ -979,7 +1001,7 @@ export default function Dashboard() {
 
                 {/* Explanation text */}
                 <div className="space-y-2 text-xs">
-                  <div className="font-bold text-text">Explanation</div>
+                  <div className="font-bold text-text">What's happening</div>
                   <p className="text-text-muted leading-relaxed bg-surface-2 p-3.5 rounded border border-border">
                     {diagnosisResult.explanation}
                   </p>
@@ -987,7 +1009,7 @@ export default function Dashboard() {
 
                 {/* Actionable treatment plan */}
                 <div className="space-y-3 text-xs">
-                  <div className="font-bold text-text">Agricultural Care Guide</div>
+                  <div className="font-bold text-text">What to do</div>
                   <ul className="space-y-3">
                     {diagnosisResult.care_guide?.map((step, idx) => (
                       <li key={idx} className="care-guide-step">
@@ -1001,22 +1023,22 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-12 text-text-muted text-xs font-sans">
                 <Leaf className="w-8 h-8 mx-auto text-text-faint mb-3" />
-                No active diagnosis.<br />Click 'Analyze Foliar Diagnostics' to begin.
+                No scan results yet.<br />Upload a leaf photo and tap "Scan for Diseases" to start.
               </div>
             )}
           </div>
 
-          {/* User's recent transaction logs */}
+          {/* Recent scan history */}
           <div className="telemetry-card">
             <div className="panel-header">
-              <h2>Your Diagnostic Logs</h2>
+              <h2>Recent Scans</h2>
             </div>
 
             <div className="overflow-x-auto max-h-[300px] border border-border rounded">
               {loadingLogs ? (
                 <div className="text-center py-8 text-text-muted text-xs flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  Loading database records...
+                  Loading your history...
                 </div>
               ) : logs.length > 0 ? (
                 <table className="logs-table">
@@ -1065,7 +1087,7 @@ export default function Dashboard() {
                 </table>
               ) : (
                 <div className="text-center py-8 text-text-muted text-xs">
-                  No scan logs stored in your secure account.
+                  No scans yet. Your history will appear here.
                 </div>
               )}
             </div>

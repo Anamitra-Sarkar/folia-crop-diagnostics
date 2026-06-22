@@ -175,9 +175,9 @@ export default function AuthPortal() {
               {isSignUp ? "Create account" : "Sign in"}
             </h2>
             <p className="text-[13px] text-text-muted font-medium">
-              {isSignUp 
-                ? "Register to begin secure crop diagnostics" 
-                : "Access your private agricultural telemetry panel"}
+              {isSignUp
+                ? "Create your account to start diagnosing plant diseases"
+                : "Sign in to scan and protect your crops"}
             </p>
           </div>
 
