@@ -7,7 +7,7 @@ import {
   Leaf, Wifi, WifiOff,
   UploadCloud, Play, FileText, CheckCircle2,
   Loader2, LogOut, RefreshCw,
-  Download, Trash2, Sun, Moon, Settings, X
+  Download, Trash2, Sun, Moon, Settings, X, Smartphone
 } from "lucide-react";
 
 const MOCK_SAMPLES = [
@@ -193,6 +193,40 @@ export default function Dashboard() {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // PWA install prompt
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  useEffect(() => {
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    const onAppInstalled = () => {
+      setInstallPrompt(null);
+      setIsAppInstalled(true);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("appinstalled", onAppInstalled);
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsAppInstalled(true);
+    }
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("appinstalled", onAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const result = await installPrompt.userChoice;
+    if (result.outcome === "accepted") {
+      setIsAppInstalled(true);
+    }
+    setInstallPrompt(null);
+  };
 
   // --- Auto-detect online/offline ---
   useEffect(() => {
@@ -621,6 +655,17 @@ export default function Dashboard() {
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               <span>Setting up offline... {downloadProgress}%</span>
             </div>
+          )}
+
+          {/* Install app button */}
+          {installPrompt && !isAppInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold cursor-pointer transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
           )}
 
           {/* Settings gear */}
