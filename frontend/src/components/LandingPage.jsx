@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  Cpu, ShieldCheck, ArrowRight, Activity, 
-  CloudLightning, Sun, Moon 
-} from "lucide-react";
+import landingImg from "../assets/landing_plant.jpg";
+import { Cpu, ShieldCheck, ArrowRight, Activity, CloudLightning, Sun, Moon } from "lucide-react";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -134,7 +132,7 @@ export default function LandingPage() {
             {/* Real photograph leaf representation */}
             <div className="rounded border border-border bg-surface p-2 shadow-[0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
               <img 
-                src="https://picsum.photos/seed/leaf-scan/560/420" 
+                src={landingImg} 
                 alt="Foliar diagnostic leaf scan sample" 
                 className="w-full h-72 object-cover rounded-sm filter saturate-[0.85] contrast-[1.02]"
               />

@@ -1,5 +1,9 @@
 @import "./App.css";
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Folia Root Scroll Normalizer */
 /* Prevents duplicate viewport scrollbars in React-Vite environments */
 html, body {

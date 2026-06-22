@@ -63,7 +63,7 @@ else:
     print("WARNING: GROQ_API_KEY environment variable is missing. Falling back to local offline dictionary.")
 
 from database import log_diagnostic, get_recent_logs, get_statistics
-from models import CloudClassifier
+from models import CloudClassifier, PLANT_DISEASES
 from fallbacks import get_offline_interpretation
 
 app = FastAPI(
@@ -99,7 +99,7 @@ def verify_firebase_token(authorization: Optional[str] = Header(None)):
     token = parts[1]
     
     # Dev/Mock mode: bypass token check if token starts with 'dummy-token-' or if DEV_MODE=true
-    dev_mode = os.getenv("DEV_MODE", "true").lower() == "true"
+    dev_mode = os.getenv("DEV_MODE", "false").lower() == "true"
     if token.startswith("dummy-token-") or dev_mode:
         uid = token.replace("dummy-token-", "") if token.startswith("dummy-token-") else "dev_user_123"
         return {"uid": uid, "email": "dev_user@example.com"}
@@ -187,7 +187,7 @@ def read_root():
     return {
         "status": "online",
         "service": "Adaptive Edge-Cloud Plant Disease Diagnosis Cloud Engine",
-        "supported_classes_count": 98
+        "supported_classes_count": len(PLANT_DISEASES)
     }
 
 @app.post("/diagnose")

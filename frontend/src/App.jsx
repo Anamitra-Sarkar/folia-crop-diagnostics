@@ -17,7 +17,7 @@ function App() {
           </ProtectedRoute>
         } />
         {/* Redirect wildcard to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

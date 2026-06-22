@@ -12,9 +12,10 @@
     
     <!-- PWA Configurations -->
     <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <meta name="theme-color" content="#f5f3ef" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     
     <script>
@@ -34,34 +35,7 @@
       }
     </script>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: ['selector', '[data-theme="dark"]'],
-        theme: {
-          extend: {
-            colors: {
-              bg: 'var(--color-bg)',
-              surface: 'var(--color-surface)',
-              'surface-2': 'var(--color-surface-2)',
-              border: 'var(--color-border)',
-              text: 'var(--color-text)',
-              'text-muted': 'var(--color-text-muted)',
-              'text-faint': 'var(--color-text-faint)',
-              primary: 'var(--color-primary)',
-              'primary-hover': 'var(--color-primary-hover)',
-              accent: 'var(--color-accent)',
-              danger: 'var(--color-danger)',
-              cloud: 'var(--color-cloud)',
-            },
-            fontFamily: {
-              display: ['Fraunces', 'Georgia', 'serif'],
-              sans: ['DM Sans', 'system-ui', 'sans-serif'],
-            }
-          }
-        }
-      }
-    </script>
+
   </head>
   <body>
     <div id="root"></div>

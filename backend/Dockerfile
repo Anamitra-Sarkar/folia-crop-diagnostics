@@ -19,6 +19,10 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
+# Pre-download cloud model weights
+COPY download_model.py .
+RUN python3 download_model.py
+
 # Copy application code
 COPY . .
 
