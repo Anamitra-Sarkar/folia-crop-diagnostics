@@ -3,6 +3,7 @@ import os
 import json
 import warnings
 from contextlib import asynccontextmanager
+import threading
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -28,6 +29,33 @@ from groq import Groq
 # ---------------------------------------------------------------------------
 groq_client: Optional[Groq] = None
 classifier: Optional[CloudClassifier] = None
+classifier_lock = threading.Lock()
+
+
+def get_classifier() -> CloudClassifier:
+    """
+    Returns a ready cloud classifier, loading it lazily if the background warmup
+    has not completed yet.
+    """
+    global classifier
+    if classifier is not None:
+        return classifier
+
+    with classifier_lock:
+        if classifier is None:
+            classifier = CloudClassifier()
+    return classifier
+
+
+def warm_classifier_in_background() -> None:
+    """
+    Best-effort background warmup so the Space becomes reachable quickly.
+    """
+    global classifier
+    try:
+        get_classifier()
+    except Exception as e:
+        print(f"Background classifier warmup failed: {e}")
 
 
 @asynccontextmanager
@@ -84,7 +112,9 @@ async def lifespan(app: FastAPI):
         print("WARNING: GROQ_API_KEY environment variable is missing. Falling back to local offline dictionary.")
 
     # ---- Model ----
-    classifier = CloudClassifier()
+    # Load the classifier lazily in a background thread so the Space can pass
+    # its readiness check quickly instead of waiting on a large download.
+    threading.Thread(target=warm_classifier_in_background, daemon=True).start()
 
     print("===== Startup complete — serving on port 7860 =====")
     yield
@@ -238,6 +268,15 @@ def read_root():
     }
 
 
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "model_ready": classifier is not None,
+        "supported_classes_count": len(PLANT_DISEASES),
+    }
+
+
 @app.post("/diagnose")
 def diagnose_image(
     request: DiagnoseRequest,
@@ -264,7 +303,7 @@ def diagnose_image(
     cloud_confidence = None
 
     if should_run_cloud:
-        cloud_prediction, cloud_confidence = classifier.predict(image_data)
+        cloud_prediction, cloud_confidence = get_classifier().predict(image_data)
         resolved_by = "cloud"
         prediction_class = cloud_prediction
         confidence = cloud_confidence
