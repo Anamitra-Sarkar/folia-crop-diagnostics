@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import landingImg from "../assets/landing_plant.jpg";
-import { Camera, ShieldCheck, ArrowRight, Leaf, MessageCircle, Sun, Moon } from "lucide-react";
+import { Camera, ShieldCheck, ArrowRight, Leaf, MessageCircle, Sun, Moon, Download } from "lucide-react";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -17,6 +17,30 @@ export default function LandingPage() {
 
   const toggleTheme = () => {
     setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
+
+  const [installReady, setInstallReady] = useState(() => !!window.__foliaPWA?.prompt);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => !!window.__foliaPWA?.installed);
+
+  useEffect(() => {
+    const onReady = () => setInstallReady(true);
+    const onInstalled = () => { setInstallReady(false); setIsAppInstalled(true); };
+    window.addEventListener("folia-install-ready", onReady);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("folia-install-ready", onReady);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    const prompt = window.__foliaPWA?.prompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const result = await prompt.userChoice;
+    if (result.outcome === "accepted") setIsAppInstalled(true);
+    window.__foliaPWA.prompt = null;
+    setInstallReady(false);
   };
 
   const fadeInUp = {
@@ -67,6 +91,16 @@ export default function LandingPage() {
           >
             {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
           </button>
+
+          {installReady && !isAppInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold cursor-pointer transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
+          )}
 
           <Link
             to="/login"

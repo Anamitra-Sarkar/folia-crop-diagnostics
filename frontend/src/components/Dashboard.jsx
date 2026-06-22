@@ -194,38 +194,31 @@ export default function Dashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // PWA install prompt
-  const [installPrompt, setInstallPrompt] = useState(null);
-  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  // PWA install prompt — reads from global captured before React mounted
+  const [installReady, setInstallReady] = useState(() => !!window.__foliaPWA?.prompt);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => !!window.__foliaPWA?.installed);
 
   useEffect(() => {
-    const onBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    const onAppInstalled = () => {
-      setInstallPrompt(null);
-      setIsAppInstalled(true);
-    };
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    window.addEventListener("appinstalled", onAppInstalled);
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsAppInstalled(true);
-    }
+    const onReady = () => setInstallReady(true);
+    const onInstalled = () => { setInstallReady(false); setIsAppInstalled(true); };
+    window.addEventListener("folia-install-ready", onReady);
+    window.addEventListener("appinstalled", onInstalled);
     return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
-      window.removeEventListener("appinstalled", onAppInstalled);
+      window.removeEventListener("folia-install-ready", onReady);
+      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const result = await installPrompt.userChoice;
+    const prompt = window.__foliaPWA?.prompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const result = await prompt.userChoice;
     if (result.outcome === "accepted") {
       setIsAppInstalled(true);
     }
-    setInstallPrompt(null);
+    window.__foliaPWA.prompt = null;
+    setInstallReady(false);
   };
 
   // --- Auto-detect online/offline ---
@@ -658,7 +651,7 @@ export default function Dashboard() {
           )}
 
           {/* Install app button */}
-          {installPrompt && !isAppInstalled && (
+          {installReady && !isAppInstalled && (
             <button
               onClick={handleInstallClick}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-[12px] font-semibold cursor-pointer transition-colors"

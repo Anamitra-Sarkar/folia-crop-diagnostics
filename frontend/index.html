@@ -27,6 +27,21 @@
     </script>
     
     <script>
+      window.__foliaPWA = { prompt: null, installed: false };
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__foliaPWA.prompt = e;
+        window.dispatchEvent(new Event('folia-install-ready'));
+      });
+      window.addEventListener('appinstalled', function() {
+        window.__foliaPWA.prompt = null;
+        window.__foliaPWA.installed = true;
+      });
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+        window.__foliaPWA.installed = true;
+      }
+    </script>
+    <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
