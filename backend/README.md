@@ -111,6 +111,7 @@ This script trains the heavy cloud classifier.
 1. Create a new Space on Hugging Face, selecting **Docker** as the SDK.
 2. Upload all files from `/backend/` (including `Dockerfile`, `app.py`, `database.py`, `models.py`, and `requirements.txt`).
 3. Hugging Face will automatically build and expose the container on port 7860.
+4. The container now starts without a build-time model download; it fetches weights at runtime when available and falls back cleanly if the model repo is unreachable.
 
 ### 5.2 Vercel Frontend
 1. Import the `/frontend/` folder to Vercel.

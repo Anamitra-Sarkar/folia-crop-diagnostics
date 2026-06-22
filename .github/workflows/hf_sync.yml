@@ -20,23 +20,29 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE: ${{ secrets.HF_SPACE }}
         run: |
+          set -euo pipefail
+
+          if [ -z "${HF_TOKEN:-}" ] || [ -z "${HF_SPACE:-}" ]; then
+            echo "HF_TOKEN and HF_SPACE must both be configured as repository secrets."
+            exit 1
+          fi
+
           git config --global user.email "bot@folia.app"
           git config --global user.name "Folia Sync Bot"
           
           # Clone the Hugging Face Space repository dynamically using the HF_SPACE secret
           HF_USERNAME=$(echo "$HF_SPACE" | cut -d'/' -f1)
-          git clone "https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE" hf_space
+          git clone --depth 1 "https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE" hf_space
           
-          # Clean existing files in the Space repo except .git
-          find hf_space -maxdepth 1 ! -name '.git' ! -name 'hf_space' -exec rm -rf {} +
-          
-          # Copy files from backend/ to hf_space/
-          cp -r backend/* hf_space/
-          
-          # Remove any local dev environment files if they exist in hf_space
-          rm -f hf_space/.env
-          rm -rf hf_space/__pycache__
-          rm -rf hf_space/.cache
+          # Replace the Space contents with the backend tree only.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='firebase-key.json' \
+            --exclude='backend.log' \
+            --exclude='__pycache__/' \
+            --exclude='.cache/' \
+            backend/ hf_space/
           
           # Stage, commit and push
           cd hf_space
