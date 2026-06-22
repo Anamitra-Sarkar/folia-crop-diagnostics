@@ -4,7 +4,9 @@ FROM python:3.10-slim
 # Set environment variables for performance and python defaults
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    MODEL_DIR=/model \
+    MODEL_PATH=/model/convnext_large_cloud_best.safetensors
 
 # Establish working directory
 WORKDIR /app
@@ -19,16 +21,17 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Pre-download cloud model weights
+# Pre-download cloud model weights to /model directory (to preserve caching and avoid being overwritten by COPY . .)
+RUN mkdir -p /model
 COPY download_model.py .
-RUN python3 download_model.py
+RUN python3 download_model.py /model
 
 # Copy application code
 COPY . .
 
 # Set up user permissions for Hugging Face space compatibility (runs as user 1000)
 RUN useradd -m -u 1000 user && \
-    chown -R user:user /app
+    chown -R user:user /app /model
 USER user
 
 # Expose default API port

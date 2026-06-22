@@ -132,8 +132,18 @@ class CloudClassifier:
             model.classifier[2] = nn.Linear(in_features, len(PLANT_DISEASES))
             
             # 2. Try loading from local safetensors directly (if generated/present)
-            local_sf = os.path.join(os.path.dirname(os.path.abspath(__file__)), "convnext_large_cloud_best.safetensors")
-            if os.path.exists(local_sf):
+            possible_paths = [
+                os.getenv("MODEL_PATH", "/model/convnext_large_cloud_best.safetensors"),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "convnext_large_cloud_best.safetensors"),
+                "./convnext_large_cloud_best.safetensors"
+            ]
+            local_sf = None
+            for p in possible_paths:
+                if os.path.exists(p):
+                    local_sf = p
+                    break
+                    
+            if local_sf:
                 try:
                     print(f"Loading weights from local safetensors: {local_sf}")
                     state_dict = load_file(local_sf)
