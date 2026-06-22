@@ -386,10 +386,6 @@ export default function Dashboard() {
 
   // --- Diagnostics ---
   const runDiagnostics = async () => {
-    if (!isOnline && !modelCached) {
-      alert("You're offline but the scanner hasn't been downloaded yet. Please connect to the internet — it will download automatically.");
-      return;
-    }
     setRunningInference(true);
     setDiagnosisResult(null);
 
@@ -399,10 +395,69 @@ export default function Dashboard() {
     setInferenceSteps(steps);
 
     const activeImage = customImage || selectedSample.image;
+    const isUserUpload = !!customImage;
+
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // --- User uploaded a real photo → always send to backend for real classification ---
+    if (isUserUpload) {
+      if (!isOnline) {
+        steps[0].status = "failed";
+        steps[0].desc = "You need an internet connection to scan uploaded photos. Please connect and try again.";
+        setInferenceSteps([...steps]);
+        setRunningInference(false);
+        return;
+      }
+
+      steps[0].status = "complete";
+      steps[0].desc = "Image received. Sending for analysis...";
+      steps.push({ id: 2, title: "Analyzing", status: "processing", desc: "Our scanner is identifying the disease..." });
+      setInferenceSteps([...steps]);
+
+      try {
+        const headers = await getAuthHeaders();
+        const base64Payload = activeImage.split(",")[1];
+        if (!base64Payload) throw new Error("Invalid image data");
+
+        const res = await fetch(`${API_BASE_URL}/diagnose`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({
+            device_id: "browser-upload", timestamp: new Date().toISOString(),
+            metrics: { vacuity: 1.0, conformal_confidence: 0.0, local_prediction: "unknown" },
+            network: { measured_latency_ms: latency },
+            image_payload: base64Payload, force_cloud: true
+          })
+        });
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+        const data = await res.json();
+        steps[1].status = "complete";
+        steps[1].desc = "Analysis complete.";
+        setInferenceSteps([...steps]);
+        setDiagnosisResult({
+          resolved_by: "Folia Scanner",
+          prediction: data.prediction,
+          confidence: data.confidence,
+          vacuity: 0.0,
+          explanation: data.explanation,
+          care_guide: data.care_guide
+        });
+        fetchTelemetry();
+      } catch {
+        steps[1].status = "failed";
+        steps[1].desc = "Could not reach the server. Please check your connection and try again.";
+        setInferenceSteps([...steps]);
+      }
+      setRunningInference(false);
+      return;
+    }
+
+    // --- Mock sample flow (demo purposes) ---
     const isHealthy = selectedSample ? selectedSample.isHealthy : false;
-    const localPrediction = selectedSample ? selectedSample.localPred : "Tomato__early_blight";
-    const rawLocalConf = selectedSample ? selectedSample.localConf : 0.85;
-    const localVacuity = selectedSample ? selectedSample.vacuity : 0.18;
+    const localPrediction = selectedSample ? selectedSample.localPred : "unknown";
+    const rawLocalConf = selectedSample ? selectedSample.localConf : 0.5;
+    const localVacuity = selectedSample ? selectedSample.vacuity : 1.0;
 
     const tau_base = 0.85;
     const beta = 0.005;
@@ -415,8 +470,6 @@ export default function Dashboard() {
     const calibratedConfidence = parseFloat((rawLocalConf / 1.22).toFixed(3));
     const gatingTriggered = localVacuity > tau_vac || calibratedConfidence < tau_conf;
     const shouldOffload = isOnline && (forceCloud || gatingTriggered);
-
-    await new Promise(resolve => setTimeout(resolve, 800));
 
     if (isHealthy && selectedSample?.id === "tomato_healthy") {
       setInferenceSteps([
@@ -436,14 +489,13 @@ export default function Dashboard() {
       };
       setDiagnosisResult(healthyResult);
       setRunningInference(false);
-      const localLog = {
+      setLogs(prev => [{
         id: Math.random().toString(36).substring(7),
         device_id: "rpi5-orchard-042", timestamp: new Date().toISOString(),
         resolved_by: "edge", local_prediction: "healthy", local_confidence: 0.98,
         network_latency: 0.0, explanation: healthyResult.explanation,
         care_guide: healthyResult.care_guide, created_at: new Date().toISOString()
-      };
-      setLogs(prev => [localLog, ...prev]);
+      }, ...prev]);
       return;
     }
 
@@ -504,15 +556,14 @@ export default function Dashboard() {
         confidence: calibratedConfidence, vacuity: localVacuity,
         explanation: localInterpretation.explanation, care_guide: localInterpretation.care_guide
       });
-      const localLog = {
+      setLogs(prev => [{
         id: Math.random().toString(36).substring(7),
         device_id: "rpi5-orchard-042", timestamp: new Date().toISOString(),
         resolved_by: "edge", local_prediction: localPrediction,
         local_confidence: calibratedConfidence, network_latency: isOnline ? latency : 0.0,
         explanation: localInterpretation.explanation, care_guide: localInterpretation.care_guide,
         created_at: new Date().toISOString()
-      };
-      setLogs(prev => [localLog, ...prev]);
+      }, ...prev]);
 
       if (isOnline) {
         try {
@@ -817,7 +868,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="space-y-3">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                    {diagnosisResult.resolved_by.includes("Advanced") ? "Enhanced scan result" : diagnosisResult.resolved_by.includes("Offline") ? "Offline scan result" : "Scan result"}
+                    {diagnosisResult.resolved_by.includes("Advanced") || diagnosisResult.resolved_by.includes("Folia") ? "Scan result" : diagnosisResult.resolved_by.includes("Offline") ? "Offline scan result" : diagnosisResult.resolved_by.includes("Fallback") ? "Fallback result" : "Scan result"}
                   </span>
 
                   <h3 className="results-title">
