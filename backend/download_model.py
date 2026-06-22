@@ -16,9 +16,9 @@ try:
         filename="convnext_large_cloud_best.safetensors",
         token=HF_TOKEN or None,
         local_dir=local_dir,
-        local_dir_use_symlinks=False
+        local_dir_use_symlinks=False,
     )
     print(f"Cloud model weights downloaded successfully to {local_dir}.")
 except Exception as e:
-    print(f"Error pre-downloading model weights: {e}")
-    sys.exit(1)
+    print(f"Warning: could not pre-download model weights: {e}")
+    print("Continuing without bundled weights; the backend will fall back to runtime download or simulator mode.")

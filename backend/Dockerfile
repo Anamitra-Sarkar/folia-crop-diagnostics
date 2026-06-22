@@ -25,10 +25,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# Pre-download cloud model weights to /model directory (to preserve caching and avoid being overwritten by COPY . .)
+# Prepare a writable model cache directory. The backend loads weights at runtime
+# and falls back to simulator mode if the repository is unavailable.
 RUN mkdir -p /model
-COPY download_model.py .
-RUN python3 download_model.py /model
 
 # Copy application code
 COPY . .
